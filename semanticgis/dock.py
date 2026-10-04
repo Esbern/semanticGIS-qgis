@@ -111,9 +111,10 @@ class SemanticGisDock(QDockWidget):
                 return
             self.catalogue, from_cache = result
             checked = self.catalogue.services_checked or "never"
+            services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
             self.status.setText(
                 f"SPHERE v{self.catalogue.version} · {len(self.catalogue.leaves)} leaves · "
-                f"services checked {checked}" + (" · offline copy" if from_cache else "")
+                f"{services}" + (" · offline copy" if from_cache else "")
             )
             self.rebuild()
 

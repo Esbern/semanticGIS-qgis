@@ -6,7 +6,7 @@ from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLabel, 
 from .catalogue import DEFAULT_BASE_URL
 
 SETTINGS_PREFIX = "semanticgis/"
-DEFAULT_SITE_URL = "https://semanticgis.dk"
+DEFAULT_SITE_URL = "https://semanticgis.org/Data"
 
 
 class SettingsDialog(QDialog):

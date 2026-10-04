@@ -1,6 +1,6 @@
 # SemanticGIS for QGIS
 
-A QGIS plugin for browsing the [SemanticGIS](https://semanticgis.dk) data network and adding its services as layers.
+A QGIS plugin for browsing the [SemanticGIS](https://semanticgis.org) data network and adding its services as layers.
 
 SemanticGIS (the SPHERE protocol) organises geospatial data as a network rather than a flat catalogue:
 
@@ -16,7 +16,7 @@ SemanticGIS (the SPHERE protocol) organises geospatial data as a network rather 
 - **Add a layer** by double-clicking a service. WFS, WMS and WMTS services are supported. By default, WFS layers fetch only the features in the current map view.
 - **Verified services only** (on by default) hides services that failed the last capabilities check. That check confirms each layer still exists on its server.
 - **Provenance tags.** Every added layer is grouped under *SemanticGIS › <leaf>* and tagged with custom properties (`semanticgis/leaf`, `semanticgis/dataset`, `semanticgis/service`). A saved project therefore still knows where each layer came from.
-- **Context menu:** open the leaf or dataset page on semanticgis.dk, open download links, or copy an endpoint URL.
+- **Context menu:** open the leaf or dataset page on semanticgis.org, open download links, or copy an endpoint URL.
 - **Works offline** from the last catalogue it loaded.
 
 ## Installation
@@ -33,8 +33,8 @@ The plugin requires QGIS 3.34 or later, and runs on both QGIS 3 (Qt5) and QGIS 4
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| Catalogue source | `https://semanticgis.dk/assets/` | Base URL or local folder holding `sphere-index.v1.json` and `services.v1.json` |
-| Documentation site | `https://semanticgis.dk` | Used to open leaf and dataset pages |
+| Catalogue source | `https://semanticgis.org/Data/assets/` | Base URL or local folder holding `sphere-index.v1.json` and `services.v1.json` |
+| Documentation site | `https://semanticgis.org/Data` | Used to open leaf and dataset pages |
 | Dataforsyningen token | — | Needed for Dataforsyningen services ([get one here](https://dataforsyningen.dk)). The token is added to the layer's URL, so it is saved in project files that contain those layers. |
 
 ## Where the catalogue comes from

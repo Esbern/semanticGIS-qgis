@@ -16,7 +16,7 @@ app.initQgis()
 from semanticgis.catalogue import load_catalogue
 from semanticgis.layers import add_service_layer
 
-source = os.environ.get("SEMANTICGIS_CATALOGUE", "https://semanticgis.dk/assets/")
+source = os.environ.get("SEMANTICGIS_CATALOGUE", "https://semanticgis.org/assets/")
 per_type = int(sys.argv[1]) if len(sys.argv) > 1 else 4
 catalogue, _ = load_catalogue(source)
 print(f"catalogue v{catalogue.version}: {len(catalogue.spheres)} spheres, {len(catalogue.leaves)} leaves, "

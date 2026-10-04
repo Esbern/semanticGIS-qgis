@@ -4,7 +4,7 @@ Two published JSON files make up the catalogue:
   sphere-index.v1.json  spheres, twigs, leaves (with twig memberships) and threads
   services.v1.json      datasets per leaf and their checked OGC/download services
 
-Both are fetched from a base URL (default: semanticgis.dk) or read from a local folder,
+Both are fetched from a base URL (default: semanticgis.org) or read from a local folder,
 and cached so the plugin also works offline. This module has no QGIS imports so it can
 be tested without QGIS.
 """
@@ -14,7 +14,7 @@ import os
 import urllib.request
 from dataclasses import dataclass, field
 
-DEFAULT_BASE_URL = "https://semanticgis.dk/assets/"
+DEFAULT_BASE_URL = "https://semanticgis.org/Data/assets/"
 INDEX_FILE = "sphere-index.v1.json"
 SERVICES_FILE = "services.v1.json"
 MIN_INDEX_VERSION = (0, 4)
@@ -115,6 +115,7 @@ class Catalogue:
             )
         self.version = index.get("version")
         self.services_checked = services.get("checked")
+        self.has_services = bool(services)
 
         self.datasets = {}
         for dataset_id, d in services.get("datasets", {}).items():
@@ -195,24 +196,34 @@ def _read(source, name, timeout):
 def load_catalogue(source=DEFAULT_BASE_URL, cache_dir=None, timeout=30):
     """Load the catalogue from `source`, falling back to the cache when it is unreachable.
 
-    Returns (catalogue, from_cache).
+    The index is required; the services file is optional, so the network can still be
+    browsed when services have not been published. Returns (catalogue, from_cache).
     """
-    texts = {}
+    def read_all(where):
+        texts = {INDEX_FILE: _read(where, INDEX_FILE, timeout)}
+        try:
+            texts[SERVICES_FILE] = _read(where, SERVICES_FILE, timeout)
+        except (OSError, ValueError):
+            texts[SERVICES_FILE] = None
+        return texts
+
     from_cache = False
     try:
-        for name in (INDEX_FILE, SERVICES_FILE):
-            texts[name] = _read(source, name, timeout)
+        texts = read_all(source)
     except (OSError, ValueError) as error:
-        if not cache_dir or not all(os.path.exists(os.path.join(cache_dir, n)) for n in (INDEX_FILE, SERVICES_FILE)):
+        if not cache_dir or not os.path.exists(os.path.join(cache_dir, INDEX_FILE)):
             raise CatalogueError(f"Could not read the catalogue from {source}: {error}") from error
-        texts = {name: _read(cache_dir, name, timeout) for name in (INDEX_FILE, SERVICES_FILE)}
+        texts = read_all(cache_dir)
         from_cache = True
 
-    catalogue = Catalogue(json.loads(texts[INDEX_FILE]), json.loads(texts[SERVICES_FILE]))
+    services_text = texts[SERVICES_FILE]
+    catalogue = Catalogue(json.loads(texts[INDEX_FILE]), json.loads(services_text) if services_text else {})
+    catalogue.has_services = services_text is not None
 
     if cache_dir and not from_cache:
         os.makedirs(cache_dir, exist_ok=True)
         for name, text in texts.items():
-            with open(os.path.join(cache_dir, name), "w", encoding="utf-8") as f:
-                f.write(text)
+            if text is not None:
+                with open(os.path.join(cache_dir, name), "w", encoding="utf-8") as f:
+                    f.write(text)
     return catalogue, from_cache
