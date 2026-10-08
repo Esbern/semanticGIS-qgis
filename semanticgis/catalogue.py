@@ -35,6 +35,8 @@ class Service:
     title: str | None
     auth: str
     check: dict
+    priority: int = 9            # lower is preferred (portal ranking, see the Data Portals notes)
+    portal: dict | None = None   # {"title", "page"} of the data portal serving it
 
     @property
     def status(self):
@@ -70,6 +72,12 @@ class Dataset:
     leaves: list
     services: list
     owner: str | None = None
+
+    @property
+    def preferred_service(self):
+        """The first verified, loadable service in priority order (the export sorts by priority)."""
+        ranked = sorted(self.services, key=lambda s: s.priority)
+        return next((s for s in ranked if s.verified and s.loadable), None)
 
 
 @dataclass
@@ -150,6 +158,11 @@ class ReferenceSource:
         return sorted(self.geometries, key=lambda g: g.denominator)
 
 
+def sort_realisations(rels):
+    """Priority first (1 = preferred, unset last), then dataset name."""
+    return sorted(rels, key=lambda r: (r.get("priority") or 10**6, str(r.get("dataset", r["id"])).lower()))
+
+
 class Catalogue:
     def __init__(self, index, services):
         version = tuple(int(p) for p in str(index.get("version", "0.0")).split(".")[:2])
@@ -179,6 +192,8 @@ class Catalogue:
                         title=s.get("title"),
                         auth=s.get("auth", "none"),
                         check=s.get("check", {}),
+                        priority=int(s.get("priority", 9)),
+                        portal=s.get("portal"),
                     )
                     for s in d.get("services", [])
                 ],
@@ -274,7 +289,7 @@ class Catalogue:
         groups = {}
         for rel in self.realisations.values():
             groups.setdefault(rel.get("collection_method"), []).append(rel)
-        return groups
+        return {method: sort_realisations(rels) for method, rels in groups.items()}
 
     def references_for(self, leaf_id=None, realisation_id=None):
         return [

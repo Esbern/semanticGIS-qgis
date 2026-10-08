@@ -165,16 +165,22 @@ class SemanticGisDock(QDockWidget):
         ]
 
     def _service_items(self, parent, dataset, leaf_id=None):
-        services = self._visible_services(dataset)
+        services = sorted(self._visible_services(dataset), key=lambda s: s.priority)
+        preferred = dataset.preferred_service
         for service in services:
             note = STATUS_TEXT.get(service.status, service.status)
-            text = f"{service.type.upper()} · {service.label}" + (f"  ({note})" if note else "")
+            portal = f"{service.portal['title']} · " if service.portal else ""
+            star = " ★" if service is preferred else ""
+            text = f"{service.type.upper()} · {portal}{service.label}{star}" + (f"  ({note})" if note else "")
             tip = f"{service.endpoint}\nlayer: {service.layer_name or '—'}"
             parent.appendRow(self._item(text, ("service", dataset.id, service.id, leaf_id), tip))
         return bool(services)
 
     def _dataset_item(self, dataset, leaf_id=None):
-        item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), dataset.page)
+        preferred = dataset.preferred_service
+        tip = dataset.page + (f"\nDouble-click adds the preferred service ({preferred.type.upper()}"
+                              f"{' · ' + preferred.portal['title'] if preferred.portal else ''})" if preferred else "")
+        item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), tip)
         return item if self._service_items(item, dataset, leaf_id) else None
 
     def _reference_items(self, parent, references):
@@ -365,6 +371,12 @@ class SemanticGisDock(QDockWidget):
             return
         if data[0] == "service":
             self.add_layer(*self._lookup(data))
+        elif data[0] == "dataset":
+            dataset = self.catalogue.datasets[data[1]]
+            preferred = dataset.preferred_service
+            if preferred is not None:
+                leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
+                self.add_layer(leaf, dataset, preferred)
         elif data[0] == "refgeom":
             source = self.catalogue.references[data[1]]
             self.add_reference_layer(source, source.geometries[data[2]])
@@ -480,6 +492,14 @@ class SemanticGisDock(QDockWidget):
             label = "Open download link" if service.type == "download" else "Add layer"
             menu.addAction(label, lambda: self.add_layer(leaf, dataset, service))
             menu.addAction("Copy endpoint URL", lambda: QApplication.clipboard().setText(service.endpoint))
+            if service.portal and service.portal.get("page"):
+                menu.addAction(f"Show portal page ({service.portal['title']})", lambda: self._open_page(service.portal["page"]))
+        elif kind == "dataset":
+            dataset = self.catalogue.datasets[data[1]]
+            preferred = dataset.preferred_service
+            if preferred is not None:
+                leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
+                menu.addAction("Add preferred service", lambda: self.add_layer(leaf, dataset, preferred))
         elif kind == "refgeom":
             source = self.catalogue.references[data[1]]
             geometry = source.geometries[data[2]]
