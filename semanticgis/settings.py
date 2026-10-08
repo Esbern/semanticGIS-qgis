@@ -1,4 +1,4 @@
-"""Plugin settings: catalogue source, site URL and Dataforsyningen token."""
+"""Plugin settings: catalogue source, site URL and the user's own service credentials."""
 
 from qgis.core import QgsSettings
 from qgis.PyQt.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit
@@ -26,9 +26,12 @@ class SettingsDialog(QDialog):
         self.token = QLineEdit(settings.value(SETTINGS_PREFIX + "dataforsyningen_token", ""))
         self.token.setEchoMode(QLineEdit.EchoMode.Password)
         form.addRow("Dataforsyningen token", self.token)
+        self.df_key = QLineEdit(settings.value(SETTINGS_PREFIX + "datafordeler_api_key", ""))
+        self.df_key.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow("Datafordeleren API key", self.df_key)
         note = QLabel(
-            "The token is added to the service URL of Dataforsyningen layers, "
-            "so it is saved in project files that contain those layers."
+            "Use your own credentials: the catalogue never contains any. They are added to the URL of "
+            "Dataforsyningen and Datafordeleren layers, so they are saved in project files that contain those layers."
         )
         note.setWordWrap(True)
         form.addRow(note)
@@ -43,4 +46,5 @@ class SettingsDialog(QDialog):
         settings.setValue(SETTINGS_PREFIX + "catalogue_source", self.source.text().strip() or DEFAULT_BASE_URL)
         settings.setValue(SETTINGS_PREFIX + "site_url", self.site.text().strip() or DEFAULT_SITE_URL)
         settings.setValue(SETTINGS_PREFIX + "dataforsyningen_token", self.token.text().strip())
+        settings.setValue(SETTINGS_PREFIX + "datafordeler_api_key", self.df_key.text().strip())
         self.accept()

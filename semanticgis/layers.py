@@ -13,13 +13,39 @@ ROOT_GROUP = "SemanticGIS"
 PROPERTY_PREFIX = "semanticgis/"
 
 
-def with_token(url, token):
-    """Append a Dataforsyningen token to an endpoint URL."""
-    if not token:
+def with_params(url, **params):
+    """Set query parameters on an endpoint URL (replacing any existing ones of the same name)."""
+    params = {k: v for k, v in params.items() if v}
+    if not params:
         return url
     parts = urlsplit(url)
-    query = [(k, v) for k, v in parse_qsl(parts.query) if k.lower() != "token"] + [("token", token)]
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k.lower() not in params] + list(params.items())
     return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+def with_token(url, token):
+    """Append a Dataforsyningen token to an endpoint URL."""
+    return with_params(url, token=token)
+
+
+def authenticated_url(service, credentials):
+    """The service endpoint with the user's own credentials (the catalogue never carries any)."""
+    credentials = credentials or {}
+    if service.auth == "dataforsyningen-token":
+        return with_token(service.endpoint, credentials.get("dataforsyningen_token"))
+    if service.auth == "datafordeler":
+        return with_params(service.endpoint, apikey=credentials.get("datafordeler_api_key"))
+    return service.endpoint
+
+
+def missing_credentials(service, credentials):
+    """A message when the service needs credentials the user has not set, else None."""
+    credentials = credentials or {}
+    if service.auth == "dataforsyningen-token" and not credentials.get("dataforsyningen_token"):
+        return "This service needs a Dataforsyningen token (Settings)."
+    if service.auth == "datafordeler" and not credentials.get("datafordeler_api_key"):
+        return "This service needs a Datafordeleren API key (Settings)."
+    return None
 
 
 def pick_crs(available, preferred=PREFERRED_CRS):
@@ -87,9 +113,11 @@ def wmts_uri(url, layer, tile_matrix_sets, formats, preferred_crs=PREFERRED_CRS)
     )
 
 
-def layer_source(service, token=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
-    """(uri, provider) for a loadable service."""
-    url = with_token(service.endpoint, token) if service.auth == "dataforsyningen-token" else service.endpoint
+def layer_source(service, credentials=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
+    """(uri, provider) for a loadable service. `credentials` is a dict from the plugin settings."""
+    if isinstance(credentials, str):   # a bare Dataforsyningen token (older callers)
+        credentials = {"dataforsyningen_token": credentials}
+    url = authenticated_url(service, credentials)
     check = service.check
     if service.type == "wfs":
         return wfs_uri(url, service.layer_name, only_in_view), "WFS"
@@ -100,7 +128,7 @@ def layer_source(service, token=None, only_in_view=True, preferred_crs=PREFERRED
     raise ValueError(f"Service type {service.type} cannot be loaded as a layer")
 
 
-def build_layer(service, dataset, token=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
+def build_layer(service, dataset, credentials=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
     """Create (but do not add) the layer. Talks to the server, so it may be slow; safe to run in a
     QgsTask as long as the caller moves the layer to the main thread before adding it.
 
@@ -108,7 +136,7 @@ def build_layer(service, dataset, token=None, only_in_view=True, preferred_crs=P
     """
     from qgis.core import QgsRasterLayer, QgsVectorLayer
 
-    uri, provider = layer_source(service, token, only_in_view, preferred_crs)
+    uri, provider = layer_source(service, credentials, only_in_view, preferred_crs)
     name = f"{dataset.title} — {service.label}" if service.label != dataset.title else dataset.title
     layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
@@ -171,10 +199,10 @@ def place_reference_layer(layer, source, geometry):
     return _add_to_group(layer, "Reference Framework")
 
 
-def add_service_layer(service, leaf, dataset, token=None, only_in_view=True):
+def add_service_layer(service, leaf, dataset, credentials=None, only_in_view=True):
     """Build and place a layer in one blocking call (used by scripts and tests)."""
     from qgis.core import QgsProject
 
     preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
-    layer = build_layer(service, dataset, token, only_in_view, preferred)
+    layer = build_layer(service, dataset, credentials, only_in_view, preferred)
     return place_layer(layer, service, leaf, dataset)

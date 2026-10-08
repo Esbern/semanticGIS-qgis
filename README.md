@@ -58,7 +58,12 @@ The plugin requires QGIS 3.34 or later, and runs on both QGIS 3 (Qt5) and QGIS 4
 | --- | --- | --- |
 | Catalogue source | `https://semanticgis.org/Data/assets/` | Base URL or local folder holding `sphere-index.v1.json` and `services.v1.json` |
 | Documentation site | `https://semanticgis.org/Data` | Used to open leaf and dataset pages |
-| Dataforsyningen token | — | Needed for Dataforsyningen services ([get one here](https://dataforsyningen.dk)). The token is added to the layer's URL, so it is saved in project files that contain those layers. |
+| Dataforsyningen token | — | Needed for Dataforsyningen services ([get one here](https://dataforsyningen.dk)) |
+| Datafordeleren API key | — | Needed for Datafordeleren services on wms./wmts./wfs.datafordeler.dk (username/password service users are deprecated) |
+
+The catalogue never contains credentials: the plugin adds your own token or API key to the service URL when it loads a layer. They are therefore saved in project files that contain those layers.
+
+**QGIS 4 and Dataforsyningen.** Over HTTP/2, Dataforsyningen's API gateway answers Qt 6 with a repeated `Content-Encoding` header, and QGIS 4 then cannot read the reply, so every Dataforsyningen layer fails. While the plugin is loaded it sends requests to `dataforsyningen.dk` and `datafordeler.dk` over HTTP/1.1, which works. On first start it also clears QGIS's network cache once, to remove broken replies.
 
 ## Where the catalogue comes from
 

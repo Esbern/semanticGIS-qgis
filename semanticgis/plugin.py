@@ -6,6 +6,7 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
+from . import network
 from .dock import SemanticGisDock
 
 MENU = "&SemanticGIS"
@@ -16,8 +17,10 @@ class SemanticGisPlugin:
         self.iface = iface
         self.dock = None
         self.action = None
+        self.network_fix = None
 
     def initGui(self):
+        self.network_fix = network.install()
         icon = QIcon(os.path.join(os.path.dirname(__file__), "icon.svg"))
         self.action = QAction(icon, "SemanticGIS data network", self.iface.mainWindow())
         self.action.setCheckable(True)
@@ -34,6 +37,8 @@ class SemanticGisPlugin:
         self.dock.setVisible(visible)
 
     def unload(self):
+        network.uninstall(self.network_fix)
+        self.network_fix = None
         self.iface.removePluginWebMenu(MENU, self.action)
         self.iface.removeWebToolBarIcon(self.action)
         if self.dock is not None:

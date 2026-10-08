@@ -23,13 +23,20 @@ from qgis.PyQt.QtWidgets import (
 
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
-from .layers import PREFERRED_CRS, build_layer, build_reference_layer, place_layer, place_reference_layer
+from .layers import (
+    PREFERRED_CRS,
+    build_layer,
+    build_reference_layer,
+    missing_credentials,
+    place_layer,
+    place_reference_layer,
+)
 from .settings import DEFAULT_SITE_URL, SETTINGS_PREFIX, SettingsDialog
 
 ROLE = Qt.ItemDataRole.UserRole + 1
 STATUS_TEXT = {
     "ok": "",
-    "needs-auth": "needs token",
+    "needs-auth": "needs credentials",
     "layer-not-found": "layer not found",
     "no-layer": "no layer name",
     "unreachable": "unreachable",
@@ -392,15 +399,20 @@ class SemanticGisDock(QDockWidget):
             lambda layer: place_reference_layer(layer, source, geometry),
         )
 
+    def credentials(self):
+        return {
+            key: settings_value(key)
+            for key in ("dataforsyningen_token", "datafordeler_api_key")
+        }
+
     def add_layer(self, leaf, dataset, service):
         if service.type == "download":
             QDesktopServices.openUrl(QUrl(service.endpoint))
             return
-        token = settings_value("dataforsyningen_token")
-        if service.auth == "dataforsyningen-token" and not token:
-            self.iface.messageBar().pushMessage(
-                "SemanticGIS", "This service needs a Dataforsyningen token (Settings).", Qgis.MessageLevel.Warning
-            )
+        credentials = self.credentials()
+        problem = missing_credentials(service, credentials)
+        if problem:
+            self.iface.messageBar().pushMessage("SemanticGIS", problem, Qgis.MessageLevel.Warning)
             return
         preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
         only_in_view = self.only_in_view.isChecked()
@@ -408,7 +420,7 @@ class SemanticGisDock(QDockWidget):
         context = f" ({leaf.title})" if leaf else ""
         self._run_layer_task(
             f"{dataset.title}{context}",
-            lambda: build_layer(service, dataset, token, only_in_view, preferred),
+            lambda: build_layer(service, dataset, credentials, only_in_view, preferred),
             lambda layer: place_layer(layer, service, leaf, dataset, owner_title),
         )
 
