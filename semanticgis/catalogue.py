@@ -88,9 +88,14 @@ class Twig:
     id: str
     sphere: str
     leaves: list = field(default_factory=list)
+    path: str | None = None
+    page_title: str | None = None
+    draft: bool = False   # draft pages are not published on the site
 
     @property
     def title(self):
+        if self.page_title:
+            return self.page_title
         # "anthroposphere_resource_utilisation" -> "Resource Utilisation", "..._ict_flows" -> "ICT Flows"
         words = self.id.split("_", 1)[-1].split("_")
         return " ".join(w.upper() if w in ACRONYMS else w.capitalize() for w in words)
@@ -236,7 +241,11 @@ class Catalogue:
                 kind=entry.get("kind", "thematic"),
             )
             for twig_id in entry["subspheres"]:
-                twig = Twig(id=twig_id, sphere=sphere.id)
+                info = index.get("twigs", {}).get(twig_id, {})
+                twig = Twig(
+                    id=twig_id, sphere=sphere.id, path=info.get("path"), page_title=info.get("title"),
+                    draft=bool(info.get("draft")),
+                )
                 twig.leaves = sorted(
                     (leaf for leaf in self.leaves.values() if twig_id in leaf.twigs), key=lambda l: l.title
                 )

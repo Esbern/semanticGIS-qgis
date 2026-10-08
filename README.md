@@ -22,7 +22,7 @@ SemanticGIS (the SPHERE protocol) organises geospatial data as a network rather 
 - **Add a layer** by double-clicking a service. WFS, WMS and WMTS services are supported. By default, WFS layers fetch only the features in the current map view.
 - **Verified services only** (on by default) hides services that failed the last capabilities check. That check confirms each layer still exists on its server.
 - **Provenance tags.** Every added layer is grouped under *SemanticGIS › <leaf>* (or the owner, when browsed by owner) and tagged with custom properties (`semanticgis/leaf`, `semanticgis/dataset`, `semanticgis/service`). A saved project therefore still knows where each layer came from.
-- **Context menu:** open the leaf or dataset page on semanticgis.org, open download links, or copy an endpoint URL.
+- **Show web page:** every node in the tree, from the six top-level folders down to services and geometries, has *Show web page* on its right-click menu. It opens the matching page on semanticgis.org; a service opens its dataset's page. The same menu adds layers, opens download links, or copies an endpoint URL.
 - **Works offline** from the last catalogue it loaded.
 
 ### Joining a table to reference units
@@ -79,6 +79,9 @@ python3 tests/test_join_core.py
 
 # Detect and build joins for semicolon-separated CSVs (e.g. Statbank exports)
 SEMANTICGIS_CATALOGUE=<folder or URL> python tests/join_live.py table.csv
+
+# Every node's web page exists on the site
+QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/page_links.py
 
 # Offscreen test of the join dialog
 QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/join_dialog_smoke.py table.csv

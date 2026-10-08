@@ -210,11 +210,11 @@ class SemanticGisDock(QDockWidget):
         self._reference_items(item, self.catalogue.references_for(realisation_id=rel["id"]))
         return item
 
-    def _top(self, title, tooltip):
-        return self._item(title, ("top", title), tooltip, bold=True)
+    def _top(self, title, tooltip, page=None):
+        return self._item(title, ("top", page), tooltip, bold=True)
 
     def _classical_branch(self):
-        top = self._top("Classical Classifications", "Themes of INSPIRE, ISO 19115 and UN-GGIM and where they land in SPHERE")
+        top = self._top("Classical Classifications", "Themes of INSPIRE, ISO 19115 and UN-GGIM and where they land in SPHERE", "/Classical Classifications/")
         by_standard = {}
         for theme in self.catalogue.classical_themes:
             by_standard.setdefault(theme["classification"], []).append(theme)
@@ -242,7 +242,7 @@ class SemanticGisDock(QDockWidget):
         return top
 
     def _methods_branch(self):
-        top = self._top("Collection Methods", "How the data was produced: register, field measurement, remote sensing, modelled, volunteered, cartographic")
+        top = self._top("Collection Methods", "How the data was produced: register, field measurement, remote sensing, modelled, volunteered, cartographic", "/Collection Methods/")
         by_method = self.catalogue.realisations_by_method()
         for method in self.catalogue.collection_methods:
             rels = sorted(by_method.get(method["id"], []), key=lambda r: r.get("dataset", "").lower())
@@ -259,7 +259,7 @@ class SemanticGisDock(QDockWidget):
         return top
 
     def _collections_branch(self):
-        top = self._top("Datasets by Collection", "Register documentation (Grunddatamodellen); accessed through GraphQL and file downloads")
+        top = self._top("Datasets by Collection", "Register documentation (Grunddatamodellen); accessed through GraphQL and file downloads", "/Datasets by Collection/")
         items = {}
         for collection in self.catalogue.collections:
             item = self._item(collection["title"], ("page", collection["path"]), collection["path"])
@@ -269,7 +269,7 @@ class SemanticGisDock(QDockWidget):
         return top
 
     def _owners_branch(self):
-        top = self._top("Datasets by Owner", "Every harvested dataset, by the organisation that publishes it")
+        top = self._top("Datasets by Owner", "Every harvested dataset, by the organisation that publishes it", "/Datasets by Owner/")
         groups = self.catalogue.datasets_by_owner()
         for owner in sorted(groups, key=lambda o: self.catalogue.owners.get(o, o).lower()):
             title = self.catalogue.owners.get(owner, owner)
@@ -284,14 +284,14 @@ class SemanticGisDock(QDockWidget):
         return top
 
     def _sphere_branch(self):
-        top = self._top("SPHERE", "The thematic spheres and their twigs")
+        top = self._top("SPHERE", "The thematic spheres and their twigs", "/SPHERE/")
         for sphere in self.catalogue.thematic_spheres:
             top.appendRow(self._sphere_item(sphere))
         return top
 
     def _reference_branch(self):
         rf = self.catalogue.reference_framework
-        top = self._top("Reference Framework", rf.description if rf else "")
+        top = self._top("Reference Framework", rf.description if rf else "", rf.path if rf else None)
         if rf:
             for twig in rf.twigs:
                 twig_item = self._item(f"{twig.title} ({len(twig.leaves)})", ("twig", twig.id))
@@ -310,12 +310,12 @@ class SemanticGisDock(QDockWidget):
             leaves = self.catalogue.search(text)
             datasets = [d for d in self.catalogue.search_datasets(text) if self._visible_services(d)]
             if leaves:
-                group = self._top(f"Leaves ({len(leaves)})", "Leaves whose title or question matches")
+                group = self._top(f"Leaves ({len(leaves)})", "Leaves whose title or question matches", "/Leaves/")
                 for leaf in leaves:
                     group.appendRow(self._leaf_item(leaf))
                 root.appendRow(group)
             if datasets:
-                group = self._top(f"Datasets ({len(datasets)})", "Datasets whose title matches")
+                group = self._top(f"Datasets ({len(datasets)})", "Datasets whose title matches", "/Datasets by Owner/")
                 for dataset in datasets:
                     ds_item = self._dataset_item(dataset)
                     if ds_item is not None:
@@ -331,7 +331,19 @@ class SemanticGisDock(QDockWidget):
             self._sphere_branch,
             self._reference_branch,
         ):
-            root.appendRow(branch())
+            item = branch()
+            if not item.hasChildren():
+                # Older published catalogues lack the data for some entry points; say so rather than
+                # showing an empty folder.
+                note = self._item(
+                    "Not in this catalogue yet",
+                    ("note",),
+                    "The catalogue at the configured source does not contain this entry point. "
+                    "It appears when the site publishes a newer catalogue (or point Settings at the vault).",
+                )
+                note.setEnabled(False)
+                item.appendRow(note)
+            root.appendRow(item)
 
     # -- actions -------------------------------------------------------------------
 
@@ -400,9 +412,46 @@ class SemanticGisDock(QDockWidget):
             lambda layer: place_layer(layer, service, leaf, dataset, owner_title),
         )
 
-    def _open_page(self, path):
+    @staticmethod
+    def page_url(path):
+        """URL of a vault path on the published site (Quartz turns spaces into hyphens)."""
         site = (settings_value("site_url", DEFAULT_SITE_URL) or DEFAULT_SITE_URL).rstrip("/")
-        QDesktopServices.openUrl(QUrl(site + "/" + path.lstrip("/").replace(" ", "-")))
+        return site + "/" + path.lstrip("/").replace(" ", "-")
+
+    def _open_page(self, path):
+        QDesktopServices.openUrl(QUrl(self.page_url(path)))
+
+    def page_for(self, data):
+        """The site page behind any node of the tree, or None."""
+        if not data or not self.catalogue:
+            return None
+        kind, c = data[0], self.catalogue
+        if kind in ("top", "page"):
+            return data[1]
+        if kind == "standard":
+            return f"/Classical Classifications/{data[1]}/"
+        if kind == "theme":
+            return next((t["path"] for t in c.classical_themes if t["id"] == data[1]), None)
+        if kind in ("method", "derived"):
+            return f"/Collection Methods/{data[1]}"
+        if kind == "owner":
+            return f"/Datasets by Owner/{data[1]}/"
+        if kind == "sphere":
+            return next((s.path for s in c.spheres if s.id == data[1]), None)
+        if kind == "twig":
+            twig = c.twigs.get(data[1])
+            return twig.path if twig and not twig.draft else None
+        if kind == "leaf":
+            leaf = c.leaves.get(data[1])
+            return leaf.path if leaf else None
+        if kind in ("dataset", "service"):
+            dataset = c.datasets.get(data[1])
+            return dataset.page if dataset else None
+        if kind == "realisation":
+            return c.realisations.get(data[1], {}).get("path")
+        if kind in ("reference", "refgeom"):
+            return c.realisations.get(c.references[data[1]].realisation, {}).get("path")
+        return None
 
     def context_menu(self, position):
         index = self.tree.indexAt(position)
@@ -410,37 +459,19 @@ class SemanticGisDock(QDockWidget):
         if not data or not self.catalogue:
             return
         menu = QMenu(self)
+        page = self.page_for(data)
+        if page:
+            menu.addAction("Show web page", lambda: self._open_page(page))
         kind = data[0]
-        page = None
-        if kind == "realisation":
-            page = self.catalogue.realisations[data[1]].get("path")
-        elif kind == "theme":
-            page = next((t["path"] for t in self.catalogue.classical_themes if t["id"] == data[1]), None)
-        elif kind == "method":
-            page = f"/Collection Methods/{data[1]}"
-        elif kind == "owner":
-            page = f"/Datasets by Owner/{data[1]}/"
-        elif kind == "page":
-            page = data[1]
-        elif kind == "reference":
-            page = self.catalogue.realisations.get(self.catalogue.references[data[1]].realisation, {}).get("path")
+        if kind == "service":
+            leaf, dataset, service = self._lookup(data)
+            label = "Open download link" if service.type == "download" else "Add layer"
+            menu.addAction(label, lambda: self.add_layer(leaf, dataset, service))
+            menu.addAction("Copy endpoint URL", lambda: QApplication.clipboard().setText(service.endpoint))
         elif kind == "refgeom":
             source = self.catalogue.references[data[1]]
             geometry = source.geometries[data[2]]
             menu.addAction("Add layer", lambda: self.add_reference_layer(source, geometry))
             menu.addAction("Copy URL", lambda: QApplication.clipboard().setText(geometry.url))
-        if page:
-            menu.addAction("Open page", lambda: self._open_page(page))
-        if kind == "leaf":
-            leaf = self.catalogue.leaves[data[1]]
-            menu.addAction("Open leaf page", lambda: self._open_page(leaf.path))
-        elif kind == "dataset":
-            dataset = self.catalogue.datasets[data[1]]
-            menu.addAction("Open dataset page", lambda: self._open_page(dataset.page))
-        elif kind == "service":
-            leaf, dataset, service = self._lookup(data)
-            label = "Open download link" if service.type == "download" else "Add layer"
-            menu.addAction(label, lambda: self.add_layer(leaf, dataset, service))
-            menu.addAction("Copy endpoint URL", lambda: QApplication.clipboard().setText(service.endpoint))
         if not menu.isEmpty():
             menu.exec(self.tree.viewport().mapToGlobal(position))

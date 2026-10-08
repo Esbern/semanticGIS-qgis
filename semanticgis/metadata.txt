@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.3.0
+version=0.3.1
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,6 +16,7 @@ icon=icon.svg
 tags=catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=True
 deprecated=False
-changelog=0.3.0 Six entry points like the website: Classical Classifications, Collection Methods, Datasets by Collection, Datasets by Owner, SPHERE and Reference Framework. All harvested datasets browsable by owner; reference geometries (NUTS, LAU) loadable at each scale; search covers datasets.
+changelog=0.3.1 Every node has 'Show web page' on right-click; twig titles from their pages; empty entry points explain why.
+    0.3.0 Six entry points like the website: Classical Classifications, Collection Methods, Datasets by Collection, Datasets by Owner, SPHERE and Reference Framework. All harvested datasets browsable by owner; reference geometries (NUTS, LAU) loadable at each scale; search covers datasets.
     0.2.0 Join a table to reference units (NUTS, LAU): the join is detected from the table's IDs or names, and only the needed geometries are fetched at the chosen scale.
     0.1.0 First version: browse and search the SPHERE network, add verified WFS/WMS/WMTS layers.
