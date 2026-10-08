@@ -14,6 +14,7 @@ from qgis.PyQt.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QPushButton,
     QToolButton,
     QTreeView,
     QVBoxLayout,
@@ -21,6 +22,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
+from .join_dialog import JoinDialog
 from .layers import PREFERRED_CRS, build_layer, place_layer
 from .settings import DEFAULT_SITE_URL, SETTINGS_PREFIX, SettingsDialog
 
@@ -77,6 +79,11 @@ class SemanticGisDock(QDockWidget):
         self.only_in_view.setChecked(True)
         layout.addWidget(self.verified_only)
         layout.addWidget(self.only_in_view)
+        self.join_button = QPushButton("Join a table to reference units…")
+        self.join_button.setToolTip("Give a statistics table geometry by matching its unit IDs to NUTS, LAU and other reference units")
+        self.join_button.setEnabled(False)
+        self.join_button.clicked.connect(self.open_join)
+        layout.addWidget(self.join_button)
 
         self.model = QStandardItemModel()
         self.tree = QTreeView()
@@ -110,6 +117,7 @@ class SemanticGisDock(QDockWidget):
                 self.iface.messageBar().pushMessage("SemanticGIS", message, Qgis.MessageLevel.Critical)
                 return
             self.catalogue, from_cache = result
+            self.join_button.setEnabled(bool(self.catalogue.references))
             checked = self.catalogue.services_checked or "never"
             services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
             self.status.setText(
@@ -120,6 +128,10 @@ class SemanticGisDock(QDockWidget):
 
         self._task = QgsTask.fromFunction("Load SemanticGIS catalogue", task_function, on_finished=on_finished)
         QgsApplication.taskManager().addTask(self._task)
+
+    def open_join(self):
+        if self.catalogue is not None:
+            JoinDialog(self.iface, self.catalogue, self).show()
 
     def open_settings(self):
         if SettingsDialog(self).exec():

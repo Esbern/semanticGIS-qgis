@@ -19,6 +19,23 @@ SemanticGIS (the SPHERE protocol) organises geospatial data as a network rather 
 - **Context menu:** open the leaf or dataset page on semanticgis.org, open download links, or copy an endpoint URL.
 - **Works offline** from the last catalogue it loaded.
 
+### Joining a table to reference units
+
+Statistics are usually published per unit ID, without geometry: population per municipality, an indicator per NUTS region. **Join a table to reference units…** gives such a table its geometry.
+
+1. **Load the table** into QGIS, for example a CSV export from Danmarks Statistik's Statbank or from Eurostat.
+2. **Choose the table and press *Detect join*.** Every column is matched against the reference units in the catalogue (currently NUTS 2024 and LAU 2024 from Eurostat GISCO). The plugin recognises:
+   - full IDs, such as `DK011` and `DK_671`;
+   - national codes in any format, such as `101`, `0101` and `101 København`, read for the country you set;
+   - names, as a last resort.
+
+   The best matches are listed with their match rate and examples of unmatched values, such as national totals.
+3. **Choose a scale and press *Join*.** The same unit ID has geometries at several scales: NUTS comes at 1:1M, 1:3M, 1:10M, 1:20M and 1:60M. Only the geometries of the matched units are fetched, by range requests on the remote GeoPackage. Denmark's 99 municipalities come out of the 78 MB European LAU file in a few seconds. Fetched units are cached in the QGIS profile.
+
+The result is a new layer under *SemanticGIS › Joins*. It contains every table row that matched, its attributes, the unit's ID and name, and the geometry, tagged with the join's provenance (`semanticgis/join_*`).
+
+The reference units, their ID schemes and their geometries per scale are part of the catalogue: they come from the `reference_units` field of the reference realisations in the SemanticGIS knowledge base.
+
 ## Installation
 
 The plugin is not yet in the official QGIS plugin repository. To install it:
@@ -51,6 +68,15 @@ Both files are produced from the SemanticGIS knowledge base, which is maintained
 The catalogue and URI-building code (`catalogue.py`, `layers.py`) has no GUI dependencies. It can be tested with QGIS's Python, without starting QGIS:
 
 ```sh
+# Matching core of the auto-join (plain Python, no QGIS needed)
+python3 tests/test_join_core.py
+
+# Detect and build joins for semicolon-separated CSVs (e.g. Statbank exports)
+SEMANTICGIS_CATALOGUE=<folder or URL> python tests/join_live.py table.csv
+
+# Offscreen test of the join dialog
+QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/join_dialog_smoke.py table.csv
+
 # Build real layers from a sample of verified services (5 per type)
 SEMANTICGIS_CATALOGUE=<folder or URL> python tests/live_layers.py 5
 
@@ -63,13 +89,15 @@ On macOS, QGIS's bundled Python needs the following environment:
 ```sh
 export PYTHONHOME=/Applications/QGIS.app/Contents/Resources
 R=$PYTHONHOME/python3.12; export PYTHONPATH=$R:$R/site-packages:$R/lib-dynload
-export PROJ_DATA=$PYTHONHOME/qgis/proj QGIS_PLUGINPATH=/Applications/QGIS.app/Contents/PlugIns/qgis
+export PROJ_DATA=$PYTHONHOME/qgis/proj GDAL_DATA=$PYTHONHOME/qgis/gdal QGIS_PLUGINPATH=/Applications/QGIS.app/Contents/PlugIns/qgis
 /Applications/QGIS.app/Contents/MacOS/python3.12 tests/live_layers.py
 ```
 
 ## Roadmap
 
 - Entity downloads: save a layer, optionally clipped to the map view, into a local GeoPackage.
+- Full-resolution Danish units (DAGI) as a join target, once their geometry URLs are in the catalogue.
+- Joining directly from catalogue realisations that declare `anchored_by`, such as Danmarks Statistik tables.
 - A filter by collection method (register, in-situ, remote sensing and so on).
 - Datafordeler GraphQL realisations, perhaps later.
 

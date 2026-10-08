@@ -105,6 +105,45 @@ class Sphere:
     twigs: list = field(default_factory=list)
 
 
+@dataclass
+class ReferenceGeometry:
+    scale: str
+    url: str
+
+    @property
+    def denominator(self):
+        """60000000 for "1:60 000 000"; 0 when the scale is not a ratio."""
+        digits = "".join(ch for ch in self.scale.split(":")[-1] if ch.isdigit())
+        return int(digits) if digits else 0
+
+
+@dataclass
+class ReferenceSource:
+    """One ID scheme of a reference realisation, with its geometries per scale."""
+
+    realisation: str
+    title: str
+    leaf: str | None
+    unit: str
+    id_scheme: str
+    version: str | None
+    crs: str | None
+    geometries: list
+
+    @property
+    def label(self):
+        version = f", {self.version}" if self.version else ""
+        return f"{self.unit} ({self.id_scheme}{version})"
+
+    @property
+    def index_geometry(self):
+        """The smallest-scale geometry: every scale shares the IDs, so it is the cheapest to read them from."""
+        return max(self.geometries, key=lambda g: g.denominator)
+
+    def geometries_by_detail(self):
+        return sorted(self.geometries, key=lambda g: g.denominator)
+
+
 class Catalogue:
     def __init__(self, index, services):
         version = tuple(int(p) for p in str(index.get("version", "0.0")).split(".")[:2])
@@ -152,6 +191,30 @@ class Catalogue:
                 self.datasets[d] for d in services.get("leaves", {}).get(leaf.id, []) if d in self.datasets
             ]
             self.leaves[leaf.id] = leaf
+
+        # Reference units that offer geometries: what tables can be joined to.
+        self.references = []
+        for rel in index.get("realisations", []):
+            leaf = next((t[len("leaf/"):] for t in rel.get("tags", []) if t.startswith("leaf/")), None)
+            for unit in rel.get("reference_units", []) or []:
+                geometries = [
+                    ReferenceGeometry(scale=str(g["scale"]), url=g["url"])
+                    for g in unit.get("geometries", []) or []
+                    if g.get("url")
+                ]
+                if geometries:
+                    self.references.append(
+                        ReferenceSource(
+                            realisation=rel["id"],
+                            title=rel.get("title", rel["id"]),
+                            leaf=leaf,
+                            unit=unit["unit"],
+                            id_scheme=unit["id_scheme"],
+                            version=str(unit["version"]) if unit.get("version") else None,
+                            crs=unit.get("crs"),
+                            geometries=geometries,
+                        )
+                    )
 
         self.spheres = []
         self.twigs = {}
