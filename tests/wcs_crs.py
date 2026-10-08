@@ -16,8 +16,9 @@ from semanticgis import network; network.install()
 from semanticgis.catalogue import load_catalogue
 from semanticgis.layers import build_layer
 
-creds = {"datafordeler_api_key": os.environ["DATAFORDELER_API_KEY"]}
+from semanticgis.access import KEYS
 catalogue, _ = load_catalogue(os.environ["SEMANTICGIS_CATALOGUE"])
+KEYS.set_profiles(catalogue.access_profiles); KEYS.use_environment(); KEYS.install()   # keys added at request time
 dataset, service = next((d, s) for d in catalogue.datasets.values() for s in d.services
                         if s.type == "wcs" and s.layer_name == "dhm_terraen")
 failures = 0
@@ -25,7 +26,7 @@ for variant, check in (("with CRS list", dict(service.check)), ("without CRS lis
     service.check = check
     for project_crs in ("EPSG:25832", "EPSG:3857", "EPSG:4326"):
         QgsProject.instance().setCrs(QgsCoordinateReferenceSystem(project_crs))
-        layer = build_layer(service, dataset, creds, True, project_crs)
+        layer = build_layer(service, dataset, True, project_crs)
         to_layer = QgsCoordinateTransform(QgsCoordinateReferenceSystem("EPSG:4326"), layer.crs(), QgsProject.instance())
         value, ok = layer.dataProvider().sample(to_layer.transform(QgsPointXY(9.68397, 56.10094)), 1)
         good = ok and 140 < value < 155

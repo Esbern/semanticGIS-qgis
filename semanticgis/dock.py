@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
@@ -30,7 +31,6 @@ from .layers import (
     place_basemap_layer,
     build_layer,
     build_reference_layer,
-    missing_credentials,
     place_layer,
     place_reference_layer,
 )
@@ -39,7 +39,7 @@ from .settings import DEFAULT_SITE_URL, SETTINGS_PREFIX, SettingsDialog
 ROLE = Qt.ItemDataRole.UserRole + 1
 STATUS_TEXT = {
     "ok": "",
-    "needs-auth": "needs credentials",
+    "needs-auth": "not checked: needs a key",
     "placeholder": "needs an API key: serves a placeholder image",
     "layer-not-found": "layer not found",
     "no-layer": "no layer name",
@@ -135,6 +135,7 @@ class SemanticGisDock(QDockWidget):
                 self.iface.messageBar().pushMessage("SemanticGIS", message, Qgis.MessageLevel.Critical)
                 return
             self.catalogue, from_cache = result
+            KEYS.set_profiles(self.catalogue.access_profiles)
             self.join_button.setEnabled(bool(self.catalogue.references))
             checked = self.catalogue.services_checked or "never"
             services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
@@ -152,7 +153,8 @@ class SemanticGisDock(QDockWidget):
             JoinDialog(self.iface, self.catalogue, self).show()
 
     def open_settings(self):
-        if SettingsDialog(self).exec():
+        profiles = self.catalogue.access_profiles if self.catalogue else KEYS.profiles
+        if SettingsDialog(profiles, self).exec():
             self.reload()
 
     # -- tree ----------------------------------------------------------------------
@@ -172,23 +174,48 @@ class SemanticGisDock(QDockWidget):
         return [
             s
             for s in dataset.services
-            if (s.verified and s.loadable) or s.type == "download" or not self.verified_only.isChecked()
+            if self._usable(s) or s.type == "download" or not self.verified_only.isChecked()
         ]
+
+    # Status of a service the nightly check could not verify because it had no key for it.
+    UNCHECKED_FOR_KEY = ("needs-auth", "placeholder")
+
+    @classmethod
+    def _usable(cls, service):
+        """Verified and loadable, or loadable and only unverified for lack of a key the user has."""
+        if not service.loadable:
+            return False
+        return service.verified or (service.status in cls.UNCHECKED_FOR_KEY and bool(service.access)
+                                    and KEYS.has_key(service.access))
+
+    def _preferred(self, item):
+        """The first usable service of a dataset or basemap in priority order."""
+        return next((s for s in sorted(item.services, key=lambda s: s.priority) if self._usable(s)), None)
+
+    def _key_mark(self, service):
+        """'🔒 ' for a service that needs a key the user has not set, '🔑 ' when it is set, and a tooltip line."""
+        profile = KEYS.profile_of(service)
+        if profile is None:
+            return "", ""
+        if KEYS.has_key(profile.id):
+            return "🔑 ", f"Uses your {profile.title}."
+        return "🔒 ", f"Needs your own {profile.title}: right-click to set it" + (f" (get one at {profile.signup_url})" if profile.signup_url else "") + "."
 
     def _service_items(self, parent, dataset, leaf_id=None):
         services = sorted(self._visible_services(dataset), key=lambda s: s.priority)
-        preferred = dataset.preferred_service
+        preferred = self._preferred(dataset)
         for service in services:
             note = STATUS_TEXT.get(service.status, service.status)
             portal = f"{service.portal['title']} · " if service.portal else ""
             star = " ★" if service is preferred else ""
-            text = f"{service.type.upper()} · {portal}{service.label}{star}" + (f"  ({note})" if note else "")
-            tip = f"{service.endpoint}\nlayer: {service.layer_name or '—'}"
+            mark, key_tip = self._key_mark(service)
+            text = f"{mark}{service.type.upper()} · {portal}{service.label}{star}" + (f"  ({note})" if note else "")
+            tip = "\n".join(filter(None, [service.endpoint, f"layer: {service.layer_name or '—'}", key_tip]))
             parent.appendRow(self._item(text, ("service", dataset.id, service.id, leaf_id), tip))
         return bool(services)
 
     def _dataset_item(self, dataset, leaf_id=None):
-        preferred = dataset.preferred_service
+        preferred = self._preferred(dataset)
         tip = dataset.page + (f"\nDouble-click adds the preferred service ({preferred.type.upper()}"
                               f"{' · ' + preferred.portal['title'] if preferred.portal else ''})" if preferred else "")
         item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), tip)
@@ -356,7 +383,7 @@ class SemanticGisDock(QDockWidget):
             kind_item = self._item(title, ("page", f"/Basemaps/{title}/"))
             for basemap in items:
                 services = [s for s in sorted(basemap.services, key=lambda s: s.priority)
-                            if (s.verified and s.loadable) or not self.verified_only.isChecked()]
+                            if self._usable(s) or not self.verified_only.isChecked()]
                 if not services:
                     continue
                 basemaps_type = services[0].type
@@ -364,14 +391,16 @@ class SemanticGisDock(QDockWidget):
                 tip = "\n".join(filter(None, [basemap.provider, basemap.licence, f"Attribution: {basemap.attribution.line(basemaps_type)}" if basemap.attribution else None,
                                                "Double-click adds it at the bottom of the layer tree."]))
                 bm_item = self._item(label, ("basemap", basemap.id), tip)
-                preferred = basemap.preferred_service
+                preferred = self._preferred(basemap)
                 for service in services:
                     note = STATUS_TEXT.get(service.status, service.status)
                     portal = f"{service.portal['title']} · " if service.portal else ""
                     star = " ★" if service is preferred else ""
                     what = service.layer_name if service.type != "xyz" else "tiles"
-                    text = f"{service.type.upper()} · {portal}{what}{star}" + (f"  ({note})" if note else "")
-                    bm_item.appendRow(self._item(text, ("bmservice", basemap.id, service.id), service.endpoint))
+                    mark, key_tip = self._key_mark(service)
+                    text = f"{mark}{service.type.upper()} · {portal}{what}{star}" + (f"  ({note})" if note else "")
+                    bm_item.appendRow(self._item(text, ("bmservice", basemap.id, service.id),
+                                                 "\n".join(filter(None, [service.endpoint, key_tip]))))
                 kind_item.appendRow(bm_item)
             if kind_item.hasChildren():
                 top.appendRow(kind_item)
@@ -381,18 +410,18 @@ class SemanticGisDock(QDockWidget):
         return next(b for b in self.catalogue.basemaps if b.id == basemap_id)
 
     def add_basemap(self, basemap, service=None):
-        service = service or basemap.preferred_service
-        if service is None:
+        service = service or self._preferred(basemap)
+        if service is None:   # e.g. only services that need a key the user has not set
+            locked = next((s for s in basemap.services if KEYS.missing(s)), None)
+            if locked is not None:
+                self._key_missing(locked)
             return
-        credentials = self.credentials()
-        problem = missing_credentials(service, credentials)
-        if problem:
-            self.iface.messageBar().pushMessage("SemanticGIS", problem, Qgis.MessageLevel.Warning)
+        if self._key_missing(service):
             return
         preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
         self._run_layer_task(
             basemap.title,
-            lambda: build_basemap_layer(basemap, service, credentials, preferred),
+            lambda: build_basemap_layer(basemap, service, preferred),
             lambda layer: place_basemap_layer(layer, basemap, service),
         )
 
@@ -462,7 +491,7 @@ class SemanticGisDock(QDockWidget):
             self.add_basemap(basemap, next(s for s in basemap.services if s.id == data[2]))
         elif data[0] == "dataset":
             dataset = self.catalogue.datasets[data[1]]
-            preferred = dataset.preferred_service
+            preferred = self._preferred(dataset)
             if preferred is not None:
                 leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
                 self.add_layer(leaf, dataset, preferred)
@@ -520,20 +549,20 @@ class SemanticGisDock(QDockWidget):
     def copy_map_attributions(self):
         copy_layer_attributions(self.iface, None, self.catalogue)
 
-    def credentials(self):
-        return {
-            key: settings_value(key)
-            for key in ("dataforsyningen_token", "datafordeler_api_key")
-        }
+    def _key_missing(self, service):
+        """Unlock the keys if needed; warn and return True when the service's key is not set."""
+        if not KEYS.loaded and KEYS.profile_of(service) is not None:
+            KEYS.load(prompt=True)
+        problem = KEYS.missing(service)
+        if problem:
+            self.iface.messageBar().pushMessage("SemanticGIS", problem, Qgis.MessageLevel.Warning, 10)
+        return bool(problem)
 
     def add_layer(self, leaf, dataset, service):
-        if service.type == "download":
-            QDesktopServices.openUrl(QUrl(service.endpoint))
+        if self._key_missing(service):
             return
-        credentials = self.credentials()
-        problem = missing_credentials(service, credentials)
-        if problem:
-            self.iface.messageBar().pushMessage("SemanticGIS", problem, Qgis.MessageLevel.Warning)
+        if service.type == "download":   # opened in the browser, so the key goes in the link
+            QDesktopServices.openUrl(QUrl(KEYS.url_with_key(service.endpoint, service)))
             return
         preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
         only_in_view = self.only_in_view.isChecked()
@@ -542,7 +571,7 @@ class SemanticGisDock(QDockWidget):
         context = f" ({leaf.title})" if leaf else ""
         self._run_layer_task(
             f"{dataset.title}{context}",
-            lambda: build_layer(service, dataset, credentials, only_in_view, preferred),
+            lambda: build_layer(service, dataset, only_in_view, preferred),
             lambda layer: place_layer(layer, service, leaf, dataset, owner_title),
         )
 
@@ -595,6 +624,25 @@ class SemanticGisDock(QDockWidget):
             return c.realisations.get(c.references[data[1]].realisation, {}).get("path")
         return None
 
+    def _key_actions(self, menu, data):
+        """'Set your <key>…' and 'How to get a <key>' for nodes whose service needs a key."""
+        kind, services = data[0], []
+        if kind == "service":
+            services = [self._lookup(data)[2]]
+        elif kind == "dataset":
+            services = self.catalogue.datasets[data[1]].services
+        elif kind in ("basemap", "bmservice"):
+            basemap = self._basemap(data[1])
+            services = [s for s in basemap.services if kind == "basemap" or s.id == data[2]]
+        profiles = {p.id: p for p in filter(None, (KEYS.profile_of(s) for s in services))}
+        for profile in profiles.values():
+            verb = "Change" if KEYS.has_key(profile.id) else "Set"
+            menu.addAction(f"{verb} your {profile.title}…", self.open_settings)
+            if profile.page:
+                menu.addAction(f"How to get a {profile.title}", lambda p=profile: self._open_page(p.page))
+        if profiles:
+            menu.addSeparator()
+
     def context_menu(self, position):
         index = self.tree.indexAt(position)
         data = index.data(ROLE) if index.isValid() else None
@@ -605,6 +653,7 @@ class SemanticGisDock(QDockWidget):
         if page:
             menu.addAction("Show web page", lambda: self._open_page(page))
         kind = data[0]
+        self._key_actions(menu, data)
         if kind == "service":
             leaf, dataset, service = self._lookup(data)
             label = "Open download link" if service.type == "download" else "Add layer"
@@ -617,14 +666,14 @@ class SemanticGisDock(QDockWidget):
             basemap = self._basemap(data[1])
             service = next((s for s in basemap.services if s.id == data[2]), None) if kind == "bmservice" else None
             menu.addAction("Add basemap", lambda: self.add_basemap(basemap, service))
-            bm_type = (service or basemap.preferred_service or (basemap.services or [None])[0])
+            bm_type = (service or self._preferred(basemap) or (basemap.services or [None])[0])
             menu.addAction("Copy attribution", lambda: self.copy_attribution(
                 basemap.attribution, bm_type.type if bm_type else None, basemap.title))
             if basemap.terms_url:
                 menu.addAction("Open licence/terms", lambda: QDesktopServices.openUrl(QUrl(basemap.terms_url)))
         elif kind == "dataset":
             dataset = self.catalogue.datasets[data[1]]
-            preferred = dataset.preferred_service
+            preferred = self._preferred(dataset)
             if preferred is not None:
                 leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
                 menu.addAction("Add preferred service", lambda: self.add_layer(leaf, dataset, preferred))

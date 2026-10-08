@@ -27,6 +27,39 @@ class CatalogueError(Exception):
 
 
 @dataclass
+class AccessProfile:
+    """A provider whose services need the user's own key, sent as the query parameter `param`
+    to the hosts listed (a host matches itself and its subdomains)."""
+
+    id: str
+    title: str
+    param: str
+    hosts: list
+    signup_url: str | None = None
+    cost: str | None = None
+    page: str | None = None
+
+    def matches(self, host):
+        host = (host or "").lower()
+        return any(host == h or host.endswith("." + h) for h in self.hosts)
+
+
+# Profiles for catalogues exported before access profiles existed (services carry only `auth`).
+BUILTIN_PROFILES = {
+    "datafordeler": AccessProfile("datafordeler", "Datafordeleren API key", "apikey", ["datafordeler.dk"],
+                                  "https://datafordeler.dk/vejledning/brugeradgang/", page="/Access Profiles/datafordeleren"),
+    "dataforsyningen": AccessProfile("dataforsyningen", "Dataforsyningen token", "token", ["dataforsyningen.dk"],
+                                     "https://dataforsyningen.dk/", page="/Access Profiles/dataforsyningen"),
+}
+LEGACY_AUTH = {"datafordeler": "datafordeler", "dataforsyningen-token": "dataforsyningen"}
+
+
+def make_profile(p):
+    return AccessProfile(id=p["id"], title=p.get("title", p["id"]), param=p["param"], hosts=[h.lower() for h in p["hosts"]],
+                         signup_url=p.get("signup_url"), cost=p.get("cost"), page=p.get("page"))
+
+
+@dataclass
 class Service:
     id: str
     type: str
@@ -39,6 +72,7 @@ class Service:
     portal: dict | None = None   # {"title", "page"} of the data portal serving it
     zmin: int | None = None      # XYZ tile services only
     zmax: int | None = None
+    access: str | None = None    # id of the access profile whose key the service needs
 
     @property
     def status(self):
@@ -114,6 +148,7 @@ def make_service(s):
         portal=s.get("portal"),
         zmin=s.get("zmin"),
         zmax=s.get("zmax"),
+        access=s.get("access") or LEGACY_AUTH.get(s.get("auth", "none")),
     )
 
 
@@ -249,6 +284,9 @@ class Catalogue:
         self.version = index.get("version")
         self.services_checked = services.get("checked")
         self.has_services = bool(services)
+
+        self.access_profiles = dict(BUILTIN_PROFILES)
+        self.access_profiles.update({p["id"]: make_profile(p) for p in services.get("access_profiles", [])})
 
         self.datasets = {}
         for dataset_id, d in services.get("datasets", {}).items():

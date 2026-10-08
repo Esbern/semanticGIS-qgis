@@ -23,31 +23,6 @@ def with_params(url, **params):
     return urlunsplit(parts._replace(query=urlencode(query)))
 
 
-def with_token(url, token):
-    """Append a Dataforsyningen token to an endpoint URL."""
-    return with_params(url, token=token)
-
-
-def authenticated_url(service, credentials):
-    """The service endpoint with the user's own credentials (the catalogue never carries any)."""
-    credentials = credentials or {}
-    if service.auth == "dataforsyningen-token":
-        return with_token(service.endpoint, credentials.get("dataforsyningen_token"))
-    if service.auth == "datafordeler":
-        return with_params(service.endpoint, apikey=credentials.get("datafordeler_api_key"))
-    return service.endpoint
-
-
-def missing_credentials(service, credentials):
-    """A message when the service needs credentials the user has not set, else None."""
-    credentials = credentials or {}
-    if service.auth == "dataforsyningen-token" and not credentials.get("dataforsyningen_token"):
-        return "This service needs a Dataforsyningen token (Settings)."
-    if service.auth == "datafordeler" and not credentials.get("datafordeler_api_key"):
-        return "This service needs a Datafordeleren API key (Settings)."
-    return None
-
-
 def pick_crs(available, preferred=PREFERRED_CRS):
     """Choose a CRS the service offers, preferring the project's and then EPSG:25832.
     Only when the service declares no CRS at all is the project CRS used unverified."""
@@ -118,11 +93,10 @@ def xyz_uri(url, zmin=0, zmax=19):
     return f"type=xyz&url={quote(url, safe='')}&zmin={zmin or 0}&zmax={zmax or 19}"
 
 
-def layer_source(service, credentials=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
-    """(uri, provider) for a loadable service. `credentials` is a dict from the plugin settings."""
-    if isinstance(credentials, str):   # a bare Dataforsyningen token (older callers)
-        credentials = {"dataforsyningen_token": credentials}
-    url = authenticated_url(service, credentials)
+def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS):
+    """(uri, provider) for a loadable service. The URI never contains a key: keys are added to
+    each request as it is sent (access.py), so saved projects carry none."""
+    url = service.endpoint
     check = service.check
     if service.type == "xyz":
         return xyz_uri(url, service.zmin, service.zmax), "wms"
@@ -144,7 +118,7 @@ def layer_source(service, credentials=None, only_in_view=True, preferred_crs=PRE
     raise ValueError(f"Service type {service.type} cannot be loaded as a layer")
 
 
-def build_layer(service, dataset, credentials=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
+def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS):
     """Create (but do not add) the layer. Talks to the server, so it may be slow; safe to run in a
     QgsTask as long as the caller moves the layer to the main thread before adding it.
 
@@ -152,7 +126,7 @@ def build_layer(service, dataset, credentials=None, only_in_view=True, preferred
     """
     from qgis.core import QgsRasterLayer, QgsVectorLayer
 
-    uri, provider = layer_source(service, credentials, only_in_view, preferred_crs)
+    uri, provider = layer_source(service, only_in_view, preferred_crs)
     name = f"{dataset.title} — {service.label}" if service.label != dataset.title else dataset.title
     layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
@@ -186,6 +160,7 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
         "dataset": dataset.id,
         "dataset_page": dataset.page,
         "service": service.id,
+        "access": service.access or "",
     }.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)
     return _add_to_group(layer, leaf.title if leaf else (group_name or "Datasets"))
@@ -194,11 +169,11 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
 BASEMAP_GROUP = "Basemaps"
 
 
-def build_basemap_layer(basemap, service, credentials=None, preferred_crs=PREFERRED_CRS):
+def build_basemap_layer(basemap, service, preferred_crs=PREFERRED_CRS):
     """Create (not add) a basemap layer; safe in a QgsTask like build_layer."""
     from qgis.core import QgsRasterLayer, QgsVectorLayer
 
-    uri, provider = layer_source(service, credentials, True, preferred_crs)
+    uri, provider = layer_source(service, True, preferred_crs)
     name = basemap.title + (f" ({basemap.period})" if basemap.period and basemap.period not in basemap.title else "")
     layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
@@ -214,7 +189,7 @@ def place_basemap_layer(layer, basemap, service):
 
     stamp(layer, basemap.attribution, service.type)
     for key, value in {"basemap": basemap.id, "basemap_page": basemap.page, "service": service.id,
-                       "licence": basemap.licence or ""}.items():
+                       "access": service.access or "", "licence": basemap.licence or ""}.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)
     project = QgsProject.instance()
     root = project.layerTreeRoot()
@@ -251,10 +226,10 @@ def place_reference_layer(layer, source, geometry):
     return _add_to_group(layer, "Reference Framework")
 
 
-def add_service_layer(service, leaf, dataset, credentials=None, only_in_view=True):
+def add_service_layer(service, leaf, dataset, only_in_view=True):
     """Build and place a layer in one blocking call (used by scripts and tests)."""
     from qgis.core import QgsProject
 
     preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
-    layer = build_layer(service, dataset, credentials, only_in_view, preferred)
+    layer = build_layer(service, dataset, only_in_view, preferred)
     return place_layer(layer, service, leaf, dataset)

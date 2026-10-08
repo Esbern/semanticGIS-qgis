@@ -19,6 +19,9 @@ from semanticgis.layers import add_service_layer
 source = os.environ.get("SEMANTICGIS_CATALOGUE", "https://semanticgis.org/assets/")
 per_type = int(sys.argv[1]) if len(sys.argv) > 1 else 4
 catalogue, _ = load_catalogue(source)
+from semanticgis import network; network.install()
+from semanticgis.access import KEYS
+KEYS.set_profiles(catalogue.access_profiles); KEYS.use_environment(); KEYS.install()   # keys from .env, at request time
 print(f"catalogue v{catalogue.version}: {len(catalogue.spheres)} spheres, {len(catalogue.leaves)} leaves, "
       f"{len(catalogue.datasets)} datasets")
 print("search 'drikkevand|drinking water':", [l.id for l in catalogue.search("drinking water")])

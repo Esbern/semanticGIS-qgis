@@ -6,7 +6,10 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
+from qgis.core import QgsProject
+
 from . import network
+from .access import KEYS
 from .attribution import copy_layer_attributions
 from .dock import SemanticGisDock
 
@@ -22,6 +25,10 @@ class SemanticGisPlugin:
 
     def initGui(self):
         self.network_fix = network.install()
+        # Keys are added to requests as they are sent; an encrypted store stays locked until needed.
+        KEYS.load(prompt=False)
+        KEYS.install()
+        QgsProject.instance().readProject.connect(self._project_read)
         icon = QIcon(os.path.join(os.path.dirname(__file__), "icon.svg"))
         self.action = QAction(icon, "SemanticGIS data network", self.iface.mainWindow())
         self.action.setCheckable(True)
@@ -36,6 +43,17 @@ class SemanticGisPlugin:
         if view is not None and hasattr(view, "contextMenuAboutToBeShown"):   # QGIS >= 3.32
             view.contextMenuAboutToBeShown.connect(self._layer_tree_menu)
             self.layer_menu_hooked = True
+
+    def _project_read(self, *_):
+        """A project with layers that need a key, opened while the encrypted keys are locked:
+        ask for the master password once, then load those layers again."""
+        if KEYS.loaded:
+            return
+        layers = [layer for layer in QgsProject.instance().mapLayers().values()
+                  if layer.customProperty("semanticgis/access")]
+        if layers and KEYS.load(prompt=True):
+            for layer in layers:
+                layer.setDataSource(layer.source(), layer.name(), layer.providerType())
 
     def _layer_tree_menu(self, menu):
         layers = self.iface.layerTreeView().selectedLayers()
@@ -79,6 +97,11 @@ class SemanticGisPlugin:
         self._sync_action()
 
     def unload(self):
+        KEYS.uninstall()
+        try:
+            QgsProject.instance().readProject.disconnect(self._project_read)
+        except (TypeError, RuntimeError):
+            pass
         if self.layer_menu_hooked:
             try:
                 self.iface.layerTreeView().contextMenuAboutToBeShown.disconnect(self._layer_tree_menu)
