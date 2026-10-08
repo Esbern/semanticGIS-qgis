@@ -25,6 +25,8 @@ from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
     PREFERRED_CRS,
+    build_basemap_layer,
+    place_basemap_layer,
     build_layer,
     build_reference_layer,
     missing_credentials,
@@ -313,6 +315,54 @@ class SemanticGisDock(QDockWidget):
                 top.appendRow(twig_item)
         return top
 
+    BASEMAP_KINDS = (("topographic", "Topographic"), ("imagery", "Imagery"), ("historical", "Historical"), ("terrain", "Terrain"))
+
+    def _basemaps_branch(self):
+        top = self._top("Basemaps", "Backdrops under your data: topographic maps, imagery, historical maps and terrain", "/Basemaps/")
+        for kind, title in self.BASEMAP_KINDS:
+            items = sorted((b for b in self.catalogue.basemaps if b.kind == kind), key=lambda b: b.title.lower())
+            kind_item = self._item(title, ("page", f"/Basemaps/{title}/"))
+            for basemap in items:
+                services = [s for s in sorted(basemap.services, key=lambda s: s.priority)
+                            if (s.verified and s.loadable) or not self.verified_only.isChecked()]
+                if not services:
+                    continue
+                label = basemap.title + (f" ({basemap.period})" if basemap.period and basemap.period not in basemap.title else "")
+                tip = "\n".join(filter(None, [basemap.provider, basemap.licence, f"Attribution: {basemap.attribution}" if basemap.attribution else None,
+                                               "Double-click adds it at the bottom of the layer tree."]))
+                bm_item = self._item(label, ("basemap", basemap.id), tip)
+                preferred = basemap.preferred_service
+                for service in services:
+                    note = STATUS_TEXT.get(service.status, service.status)
+                    portal = f"{service.portal['title']} · " if service.portal else ""
+                    star = " ★" if service is preferred else ""
+                    what = service.layer_name if service.type != "xyz" else "tiles"
+                    text = f"{service.type.upper()} · {portal}{what}{star}" + (f"  ({note})" if note else "")
+                    bm_item.appendRow(self._item(text, ("bmservice", basemap.id, service.id), service.endpoint))
+                kind_item.appendRow(bm_item)
+            if kind_item.hasChildren():
+                top.appendRow(kind_item)
+        return top
+
+    def _basemap(self, basemap_id):
+        return next(b for b in self.catalogue.basemaps if b.id == basemap_id)
+
+    def add_basemap(self, basemap, service=None):
+        service = service or basemap.preferred_service
+        if service is None:
+            return
+        credentials = self.credentials()
+        problem = missing_credentials(service, credentials)
+        if problem:
+            self.iface.messageBar().pushMessage("SemanticGIS", problem, Qgis.MessageLevel.Warning)
+            return
+        preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
+        self._run_layer_task(
+            basemap.title,
+            lambda: build_basemap_layer(basemap, service, credentials, preferred),
+            lambda layer: place_basemap_layer(layer, basemap, service),
+        )
+
     def rebuild(self):
         self.model.clear()
         if not self.catalogue:
@@ -343,6 +393,7 @@ class SemanticGisDock(QDockWidget):
             self._owners_branch,
             self._sphere_branch,
             self._reference_branch,
+            self._basemaps_branch,
         ):
             item = branch()
             if not item.hasChildren():
@@ -371,6 +422,11 @@ class SemanticGisDock(QDockWidget):
             return
         if data[0] == "service":
             self.add_layer(*self._lookup(data))
+        elif data[0] == "basemap":
+            self.add_basemap(self._basemap(data[1]))
+        elif data[0] == "bmservice":
+            basemap = self._basemap(data[1])
+            self.add_basemap(basemap, next(s for s in basemap.services if s.id == data[2]))
         elif data[0] == "dataset":
             dataset = self.catalogue.datasets[data[1]]
             preferred = dataset.preferred_service
@@ -473,6 +529,8 @@ class SemanticGisDock(QDockWidget):
             return dataset.page if dataset else None
         if kind == "realisation":
             return c.realisations.get(data[1], {}).get("path")
+        if kind in ("basemap", "bmservice"):
+            return next((b.page for b in c.basemaps if b.id == data[1]), None)
         if kind in ("reference", "refgeom"):
             return c.realisations.get(c.references[data[1]].realisation, {}).get("path")
         return None
@@ -494,6 +552,12 @@ class SemanticGisDock(QDockWidget):
             menu.addAction("Copy endpoint URL", lambda: QApplication.clipboard().setText(service.endpoint))
             if service.portal and service.portal.get("page"):
                 menu.addAction(f"Show portal page ({service.portal['title']})", lambda: self._open_page(service.portal["page"]))
+        elif kind in ("basemap", "bmservice"):
+            basemap = self._basemap(data[1])
+            service = next((s for s in basemap.services if s.id == data[2]), None) if kind == "bmservice" else None
+            menu.addAction("Add basemap", lambda: self.add_basemap(basemap, service))
+            if basemap.terms_url:
+                menu.addAction("Open licence/terms", lambda: QDesktopServices.openUrl(QUrl(basemap.terms_url)))
         elif kind == "dataset":
             dataset = self.catalogue.datasets[data[1]]
             preferred = dataset.preferred_service

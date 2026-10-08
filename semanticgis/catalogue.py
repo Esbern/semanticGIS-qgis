@@ -18,7 +18,7 @@ DEFAULT_BASE_URL = "https://semanticgis.org/Data/assets/"
 INDEX_FILE = "sphere-index.v1.json"
 SERVICES_FILE = "services.v1.json"
 MIN_INDEX_VERSION = (0, 4)
-LOADABLE_TYPES = ("wfs", "wms", "wmts")
+LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz")
 ACRONYMS = {"ict", "crs"}
 
 
@@ -37,6 +37,8 @@ class Service:
     check: dict
     priority: int = 9            # lower is preferred (portal ranking, see the Data Portals notes)
     portal: dict | None = None   # {"title", "page"} of the data portal serving it
+    zmin: int | None = None      # XYZ tile services only
+    zmax: int | None = None
 
     @property
     def status(self):
@@ -48,7 +50,7 @@ class Service:
 
     @property
     def loadable(self):
-        return self.type in LOADABLE_TYPES and bool(self.layer_name)
+        return self.type in LOADABLE_TYPES and (self.type == "xyz" or bool(self.layer_name))
 
     @property
     def layer_name(self):
@@ -62,6 +64,43 @@ class Service:
     @property
     def label(self):
         return self.check.get("layer_title") or self.title or self.layer_name or self.url
+
+
+def make_service(s):
+    return Service(
+        id=s["id"],
+        type=s["type"],
+        url=s["url"],
+        layer=s.get("layer"),
+        title=s.get("title"),
+        auth=s.get("auth", "none"),
+        check=s.get("check", {}),
+        priority=int(s.get("priority", 9)),
+        portal=s.get("portal"),
+        zmin=s.get("zmin"),
+        zmax=s.get("zmax"),
+    )
+
+
+@dataclass
+class Basemap:
+    id: str
+    title: str
+    kind: str
+    page: str
+    services: list
+    period: str | None = None
+    provider: str | None = None
+    attribution: str | None = None
+    licence: str | None = None
+    terms_url: str | None = None
+    collection_method: str | None = None
+    leaf: str | None = None
+
+    @property
+    def preferred_service(self):
+        ranked = sorted(self.services, key=lambda s: s.priority)
+        return next((s for s in ranked if s.verified and s.loadable), None)
 
 
 @dataclass
@@ -183,20 +222,7 @@ class Catalogue:
                 page=d.get("page", ""),
                 leaves=d.get("leaves", []),
                 owner=d.get("owner"),
-                services=[
-                    Service(
-                        id=s["id"],
-                        type=s["type"],
-                        url=s["url"],
-                        layer=s.get("layer"),
-                        title=s.get("title"),
-                        auth=s.get("auth", "none"),
-                        check=s.get("check", {}),
-                        priority=int(s.get("priority", 9)),
-                        portal=s.get("portal"),
-                    )
-                    for s in d.get("services", [])
-                ],
+                services=[make_service(s) for s in d.get("services", [])],
             )
 
         self.leaves = {}
@@ -237,6 +263,17 @@ class Catalogue:
                             geometries=geometries,
                         )
                     )
+
+        self.basemaps = [
+            Basemap(
+                id=b["id"], title=b["title"], kind=b.get("kind", ""), page=b.get("page", ""),
+                services=[make_service(s) for s in b.get("services", [])],
+                period=b.get("period"), provider=b.get("provider"), attribution=b.get("attribution"),
+                licence=b.get("licence"), terms_url=b.get("terms_url"),
+                collection_method=b.get("collection_method"), leaf=b.get("leaf"),
+            )
+            for b in services.get("basemaps", [])
+        ]
 
         # Browsing structures for the other entry points.
         self.owners = services.get("owners", {})

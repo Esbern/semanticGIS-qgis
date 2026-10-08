@@ -11,13 +11,14 @@ SemanticGIS (the SPHERE protocol) organises geospatial data as a network rather 
 
 ## Features
 
-- **Browse** from six entry points, the same as on the website:
+- **Browse** from seven entry points, the same as on the website:
   - **Classical Classifications:** INSPIRE, ISO 19115 and UN-GGIM themes and the twigs they land in.
   - **Collection Methods:** register, field measurement, passive or active remote sensing, modelled, volunteered and cartographic, with the realisations of each.
   - **Datasets by Collection:** the Grunddatamodellen registers. These open their documentation pages, since they are accessed through GraphQL and file downloads.
   - **Datasets by Owner:** every harvested dataset with services, by publishing organisation.
   - **SPHERE:** the thematic spheres, then twig, leaf, dataset and service. A ★ marks leaves whose primary lens is that twig.
   - **Reference Framework:** coordinate systems and the reference units that other data refers to by ID: administrative units, statistical units and addresses. Their geometries, such as NUTS and LAU, can be loaded at each scale.
+  - **Basemaps:** topographic maps, imagery, historical maps and terrain. The Danish ones are Skærmkort, the orthophotos, the målebordsblade and the DHM shaded relief; the international ones are OpenStreetMap, OpenTopoMap, CARTO, Esri and EOX Sentinel-2 cloudless. Double-click adds a basemap at the bottom of the layer tree, with its attribution set; right-click opens its licence. Google tiles are not included, because Google's terms forbid direct tile use.
 - **Search** leaves (by title or by the question they answer) and datasets (by title).
 - **Add a layer** by double-clicking a service. WFS, WMS and WMTS services are supported. By default, WFS layers fetch only the features in the current map view.
 - **Preferred services.** When a dataset is served by several providers, its services are listed in the order the knowledge base ranks them: Datafordeleren before Dataforsyningen, unless a dataset note says otherwise. The first verified service is marked ★, and double-clicking the dataset adds it.

@@ -6,7 +6,7 @@ SPHERE provenance (leaf, dataset, service) as layer custom properties, so a save
 still knows where each layer came from.
 """
 
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 PREFERRED_CRS = "EPSG:25832"
 ROOT_GROUP = "SemanticGIS"
@@ -113,12 +113,18 @@ def wmts_uri(url, layer, tile_matrix_sets, formats, preferred_crs=PREFERRED_CRS)
     )
 
 
+def xyz_uri(url, zmin=0, zmax=19):
+    return f"type=xyz&url={quote(url, safe='')}&zmin={zmin or 0}&zmax={zmax or 19}"
+
+
 def layer_source(service, credentials=None, only_in_view=True, preferred_crs=PREFERRED_CRS):
     """(uri, provider) for a loadable service. `credentials` is a dict from the plugin settings."""
     if isinstance(credentials, str):   # a bare Dataforsyningen token (older callers)
         credentials = {"dataforsyningen_token": credentials}
     url = authenticated_url(service, credentials)
     check = service.check
+    if service.type == "xyz":
+        return xyz_uri(url, service.zmin, service.zmax), "wms"
     if service.type == "wfs":
         return wfs_uri(url, service.layer_name, only_in_view), "WFS"
     if service.type == "wms":
@@ -170,6 +176,41 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
     }.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)
     return _add_to_group(layer, leaf.title if leaf else (group_name or "Datasets"))
+
+
+BASEMAP_GROUP = "Basemaps"
+
+
+def build_basemap_layer(basemap, service, credentials=None, preferred_crs=PREFERRED_CRS):
+    """Create (not add) a basemap layer; safe in a QgsTask like build_layer."""
+    from qgis.core import QgsRasterLayer, QgsVectorLayer
+
+    uri, provider = layer_source(service, credentials, True, preferred_crs)
+    name = basemap.title + (f" ({basemap.period})" if basemap.period and basemap.period not in basemap.title else "")
+    layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
+    if not layer.isValid():
+        raise RuntimeError(layer.error().summary() or f"The basemap {basemap.title} could not be loaded")
+    return layer
+
+
+def place_basemap_layer(layer, basemap, service):
+    """Add a basemap at the bottom of the layer tree (under the user's data), with attribution."""
+    from qgis.core import QgsProject
+
+    if basemap.attribution:
+        try:
+            layer.serverProperties().setAttribution(basemap.attribution)   # QGIS >= 3.38
+        except AttributeError:
+            layer.setAttribution(basemap.attribution)
+    for key, value in {"basemap": basemap.id, "basemap_page": basemap.page, "service": service.id,
+                       "licence": basemap.licence or ""}.items():
+        layer.setCustomProperty(PROPERTY_PREFIX + key, value)
+    project = QgsProject.instance()
+    root = project.layerTreeRoot()
+    group = root.findGroup(BASEMAP_GROUP) or root.addGroup(BASEMAP_GROUP)   # addGroup appends at the bottom
+    project.addMapLayer(layer, False)
+    group.insertLayer(0, layer)   # the basemap just added is the visible one
+    return layer
 
 
 def build_reference_layer(source, geometry):
