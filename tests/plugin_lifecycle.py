@@ -24,7 +24,7 @@ import semanticgis
 iface = Stub()
 plugin = semanticgis.classFactory(iface)
 plugin.initGui()
-plugin.action.setChecked(True)          # opens the dock and starts loading the catalogue
+plugin.action.trigger()                 # opens the dock (as a click would) and loads the catalogue
 import time
 deadline = time.time() + 60
 while time.time() < deadline and plugin.dock.catalogue is None:

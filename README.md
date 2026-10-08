@@ -96,6 +96,9 @@ QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/joi
 # Build real layers from a sample of verified services (5 per type)
 SEMANTICGIS_CATALOGUE=<folder or URL> python tests/live_layers.py 5
 
+# The panel survives being tabbed with another dock
+QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/dock_tabs.py
+
 # Offscreen test of the dock panel
 QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/dock_smoke.py
 ```
