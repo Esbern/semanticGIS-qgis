@@ -18,7 +18,7 @@ DEFAULT_BASE_URL = "https://semanticgis.org/Data/assets/"
 INDEX_FILE = "sphere-index.v1.json"
 SERVICES_FILE = "services.v1.json"
 MIN_INDEX_VERSION = (0, 4)
-LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz")
+LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz", "wcs")
 ACRONYMS = {"ict", "crs"}
 
 
@@ -275,6 +275,21 @@ class Catalogue:
             for b in services.get("basemaps", [])
         ]
 
+        # Datafordeleren's registers (its own data overview), as ordinary datasets so that ordering,
+        # the preferred service and search work the same way. Their page is on datafordeler.dk.
+        self.datafordeler = []
+        for r_index, register in enumerate(services.get("datafordeler", [])):
+            items = []
+            for d_index, d in enumerate(register.get("datasets", [])):
+                dataset = Dataset(
+                    id=f"datafordeler:{r_index}:{d_index}", title=d["title"], page=d.get("page", ""), leaves=[],
+                    services=[make_service(s) for s in d.get("services", [])], owner=register["title"],
+                )
+                self.datasets[dataset.id] = dataset
+                items.append(dataset)
+            self.datafordeler.append({"title": register["title"], "datasets": items})
+        self.leaf_registers = services.get("leaf_registers", {})
+
         # Browsing structures for the other entry points.
         self.owners = services.get("owners", {})
         self.collections = services.get("collections", [])
@@ -318,8 +333,8 @@ class Catalogue:
         groups = {}
         for dataset in self.datasets.values():
             parts = dataset.page.strip("/").split("/")
-            folder = parts[1] if len(parts) > 2 and parts[0] == "Datasets by Owner" else (dataset.owner or "")
-            groups.setdefault(folder, []).append(dataset)
+            if len(parts) > 2 and parts[0] == "Datasets by Owner":
+                groups.setdefault(parts[1], []).append(dataset)
         return {owner: sorted(items, key=lambda d: d.title.lower()) for owner, items in groups.items()}
 
     def realisations_by_method(self):
@@ -327,6 +342,11 @@ class Catalogue:
         for rel in self.realisations.values():
             groups.setdefault(rel.get("collection_method"), []).append(rel)
         return {method: sort_realisations(rels) for method, rels in groups.items()}
+
+    def registers_for(self, leaf_id):
+        """Datafordeleren registers that realise a leaf (realisations with datafordeler_register)."""
+        titles = self.leaf_registers.get(leaf_id, [])
+        return [r for r in self.datafordeler if r["title"] in titles]
 
     def references_for(self, leaf_id=None, realisation_id=None):
         return [

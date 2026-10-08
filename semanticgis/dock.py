@@ -203,6 +203,15 @@ class SemanticGisDock(QDockWidget):
             ds_item = self._dataset_item(dataset, leaf.id)
             if ds_item is not None:
                 item.appendRow(ds_item)
+        for register in self.catalogue.registers_for(leaf.id):
+            reg_item = self._item(f"Datafordeleren: {register['title']}", ("register", register["title"]),
+                                  "Services of the Datafordeleren register that realises this leaf")
+            for dataset in register["datasets"]:
+                ds_item = self._dataset_item(dataset, leaf.id)
+                if ds_item is not None:
+                    reg_item.appendRow(ds_item)
+            if reg_item.hasChildren():
+                item.appendRow(reg_item)
         if not item.hasChildren():
             item.setToolTip(f"{leaf.question}\n\nNo loadable services yet.")
         return item
@@ -275,6 +284,20 @@ class SemanticGisDock(QDockWidget):
 
     def _collections_branch(self):
         top = self._top("Datasets by Collection", "Register documentation (Grunddatamodellen); accessed through GraphQL and file downloads", "/Datasets by Collection/")
+        if self.catalogue.datafordeler:
+            df_top = self._item("Datafordeleren", ("page", "https://datafordeler.dk/dataoversigt/"),
+                                "Datafordeleren's registers and their WMS, WMTS, WFS and WCS services (API key)")
+            for register in self.catalogue.datafordeler:
+                reg_item = self._item(register["title"], ("register", register["title"]))
+                for dataset in register["datasets"]:
+                    ds_item = self._dataset_item(dataset)
+                    if ds_item is not None:
+                        reg_item.appendRow(ds_item)
+                if reg_item.hasChildren():
+                    reg_item.setText(f"{register['title']} ({reg_item.rowCount()})")
+                    df_top.appendRow(reg_item)
+            if df_top.hasChildren():
+                top.appendRow(df_top)
         items = {}
         for collection in self.catalogue.collections:
             item = self._item(collection["title"], ("page", collection["path"]), collection["path"])
@@ -484,7 +507,8 @@ class SemanticGisDock(QDockWidget):
             return
         preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
         only_in_view = self.only_in_view.isChecked()
-        owner_title = self.catalogue.owners.get(dataset.page.strip("/").split("/")[1], None) if dataset.page.startswith("/Datasets by Owner/") else None
+        owner_title = (self.catalogue.owners.get(dataset.page.strip("/").split("/")[1], None)
+                       if dataset.page.startswith("/Datasets by Owner/") else dataset.owner)
         context = f" ({leaf.title})" if leaf else ""
         self._run_layer_task(
             f"{dataset.title}{context}",
@@ -494,7 +518,10 @@ class SemanticGisDock(QDockWidget):
 
     @staticmethod
     def page_url(path):
-        """URL of a vault path on the published site (Quartz turns spaces into hyphens)."""
+        """URL of a vault path on the published site (Quartz turns spaces into hyphens).
+        Absolute URLs (e.g. Datafordeleren's own pages) are returned as they are."""
+        if path.startswith(("http://", "https://")):
+            return path
         site = (settings_value("site_url", DEFAULT_SITE_URL) or DEFAULT_SITE_URL).rstrip("/")
         return site + "/" + path.lstrip("/").replace(" ", "-")
 
@@ -531,6 +558,8 @@ class SemanticGisDock(QDockWidget):
             return c.realisations.get(data[1], {}).get("path")
         if kind in ("basemap", "bmservice"):
             return next((b.page for b in c.basemaps if b.id == data[1]), None)
+        if kind == "register":
+            return "https://datafordeler.dk/dataoversigt/"
         if kind in ("reference", "refgeom"):
             return c.realisations.get(c.references[data[1]].realisation, {}).get("path")
         return None

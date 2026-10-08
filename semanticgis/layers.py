@@ -125,6 +125,10 @@ def layer_source(service, credentials=None, only_in_view=True, preferred_crs=PRE
     check = service.check
     if service.type == "xyz":
         return xyz_uri(url, service.zmin, service.zmax), "wms"
+    if service.type == "wcs":
+        # Real values (e.g. heights), not a picture: GeoTIFF in the project CRS when possible.
+        crs = pick_crs(check.get("crs"), preferred_crs)
+        return urlencode([("cache", "PreferNetwork"), ("crs", crs), ("format", "GTiff"), ("identifier", service.layer_name), ("url", url)]), "wcs"
     if service.type == "wfs":
         return wfs_uri(url, service.layer_name, only_in_view), "WFS"
     if service.type == "wms":
