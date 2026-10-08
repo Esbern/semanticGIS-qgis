@@ -39,6 +39,7 @@ ROLE = Qt.ItemDataRole.UserRole + 1
 STATUS_TEXT = {
     "ok": "",
     "needs-auth": "needs credentials",
+    "placeholder": "needs an API key: serves a placeholder image",
     "layer-not-found": "layer not found",
     "no-layer": "no layer name",
     "unreachable": "unreachable",
