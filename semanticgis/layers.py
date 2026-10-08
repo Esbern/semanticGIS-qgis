@@ -49,7 +49,8 @@ def missing_credentials(service, credentials):
 
 
 def pick_crs(available, preferred=PREFERRED_CRS):
-    """Choose a CRS the service offers, preferring the project's and then EPSG:25832."""
+    """Choose a CRS the service offers, preferring the project's and then EPSG:25832.
+    Only when the service declares no CRS at all is the project CRS used unverified."""
     def norm(code):
         code = code.upper()
         if "EPSG" in code:
@@ -126,9 +127,14 @@ def layer_source(service, credentials=None, only_in_view=True, preferred_crs=PRE
     if service.type == "xyz":
         return xyz_uri(url, service.zmin, service.zmax), "wms"
     if service.type == "wcs":
-        # Real values (e.g. heights), not a picture: GeoTIFF in the project CRS when possible.
-        crs = pick_crs(check.get("crs"), preferred_crs)
-        return urlencode([("cache", "PreferNetwork"), ("crs", crs), ("format", "GTiff"), ("identifier", service.layer_name), ("url", url)]), "wcs"
+        # Real values (e.g. heights), not a picture. Request a CRS the coverage supports (the
+        # project CRS if it is one of them); QGIS reprojects on the fly. Asking for an unsupported
+        # CRS returns empty cells, so with no known list let QGIS use the coverage's own CRS.
+        params = [("cache", "PreferNetwork")]
+        if check.get("crs"):
+            params.append(("crs", pick_crs(check["crs"], preferred_crs)))
+        params += [("format", "GTiff"), ("identifier", service.layer_name), ("url", url)]
+        return urlencode(params), "wcs"
     if service.type == "wfs":
         return wfs_uri(url, service.layer_name, only_in_view), "WFS"
     if service.type == "wms":

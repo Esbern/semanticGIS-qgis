@@ -87,6 +87,9 @@ python3 tests/test_join_core.py
 # Detect and build joins for semicolon-separated CSVs (e.g. Statbank exports)
 SEMANTICGIS_CATALOGUE=<folder or URL> python tests/join_live.py table.csv
 
+# WCS requested in a supported CRS whatever the project CRS (needs a Datafordeleren key)
+DATAFORDELER_API_KEY=… SEMANTICGIS_CATALOGUE=<folder or URL> python tests/wcs_crs.py
+
 # Every node's web page exists on the site
 QT_QPA_PLATFORM=offscreen SEMANTICGIS_CATALOGUE=<folder or URL> python tests/page_links.py
 
