@@ -7,6 +7,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
 from . import network
+from .attribution import copy_layer_attributions
 from .dock import SemanticGisDock
 
 MENU = "&SemanticGIS"
@@ -29,6 +30,22 @@ class SemanticGisPlugin:
         self.action.triggered.connect(self.toggle_dock)
         self.iface.addWebToolBarIcon(self.action)
         self.iface.addPluginToWebMenu(MENU, self.action)
+        # Right-click in the Layers panel: copy the attributions of the selected layers.
+        self.layer_menu_hooked = False
+        view = self.iface.layerTreeView()
+        if view is not None and hasattr(view, "contextMenuAboutToBeShown"):   # QGIS >= 3.32
+            view.contextMenuAboutToBeShown.connect(self._layer_tree_menu)
+            self.layer_menu_hooked = True
+
+    def _layer_tree_menu(self, menu):
+        layers = self.iface.layerTreeView().selectedLayers()
+        catalogue = self.dock.catalogue if self.dock is not None else None
+        menu.addSeparator()
+        if layers:
+            menu.addAction("Copy attribution (SemanticGIS)",
+                           lambda: copy_layer_attributions(self.iface, layers, catalogue))
+        menu.addAction("Copy attributions of all layers (SemanticGIS)",
+                       lambda: copy_layer_attributions(self.iface, None, catalogue))
 
     def _ensure_dock(self):
         if self.dock is None:
@@ -62,6 +79,11 @@ class SemanticGisPlugin:
         self._sync_action()
 
     def unload(self):
+        if self.layer_menu_hooked:
+            try:
+                self.iface.layerTreeView().contextMenuAboutToBeShown.disconnect(self._layer_tree_menu)
+            except (TypeError, RuntimeError):
+                pass
         network.uninstall(self.network_fix)
         self.network_fix = None
         self.iface.removePluginWebMenu(MENU, self.action)

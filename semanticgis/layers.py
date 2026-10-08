@@ -177,6 +177,9 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
 
     `leaf` may be None for a dataset browsed by owner. Main thread only.
     """
+    from .attribution import stamp
+
+    stamp(layer, dataset.attribution, service.type)
     for key, value in {
         "leaf": leaf.id if leaf else "",
         "leaf_title": leaf.title if leaf else "",
@@ -207,11 +210,9 @@ def place_basemap_layer(layer, basemap, service):
     """Add a basemap at the bottom of the layer tree (under the user's data), with attribution."""
     from qgis.core import QgsProject
 
-    if basemap.attribution:
-        try:
-            layer.serverProperties().setAttribution(basemap.attribution)   # QGIS >= 3.38
-        except AttributeError:
-            layer.setAttribution(basemap.attribution)
+    from .attribution import stamp
+
+    stamp(layer, basemap.attribution, service.type)
     for key, value in {"basemap": basemap.id, "basemap_page": basemap.page, "service": service.id,
                        "licence": basemap.licence or ""}.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)

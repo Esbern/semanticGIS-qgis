@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
@@ -94,6 +95,13 @@ class SemanticGisDock(QDockWidget):
         self.join_button.setEnabled(False)
         self.join_button.clicked.connect(self.open_join)
         layout.addWidget(self.join_button)
+        self.credits_button = QPushButton("Copy attributions for the map")
+        self.credits_button.setToolTip(
+            "Copy the attribution lines of the project's layers, to paste into a label in the print layout.\n"
+            f"A label with the expression {LAYOUT_EXPRESSION} keeps itself up to date with the layers of 'Map 1'."
+        )
+        self.credits_button.clicked.connect(self.copy_map_attributions)
+        layout.addWidget(self.credits_button)
 
         self.model = QStandardItemModel()
         self.tree = QTreeView()
@@ -351,8 +359,9 @@ class SemanticGisDock(QDockWidget):
                             if (s.verified and s.loadable) or not self.verified_only.isChecked()]
                 if not services:
                     continue
+                basemaps_type = services[0].type
                 label = basemap.title + (f" ({basemap.period})" if basemap.period and basemap.period not in basemap.title else "")
-                tip = "\n".join(filter(None, [basemap.provider, basemap.licence, f"Attribution: {basemap.attribution}" if basemap.attribution else None,
+                tip = "\n".join(filter(None, [basemap.provider, basemap.licence, f"Attribution: {basemap.attribution.line(basemaps_type)}" if basemap.attribution else None,
                                                "Double-click adds it at the bottom of the layer tree."]))
                 bm_item = self._item(label, ("basemap", basemap.id), tip)
                 preferred = basemap.preferred_service
@@ -491,6 +500,26 @@ class SemanticGisDock(QDockWidget):
             lambda layer: place_reference_layer(layer, source, geometry),
         )
 
+    # -- attribution -----------------------------------------------------------------
+
+    def copy_attribution(self, attribution, service_type, title):
+        """Copy one dataset's or basemap's attribution line, saying how sure the wording is."""
+        line = attribution.line(service_type) if attribution else ""
+        bar = self.iface.messageBar()
+        if not line:
+            bar.pushMessage("SemanticGIS", f"No attribution is recorded for {title}: {STATUS_NOTE['unknown']}.",
+                            Qgis.MessageLevel.Warning, 8)
+            return
+        QApplication.clipboard().setText(line)
+        note = STATUS_NOTE.get(attribution.status, "")
+        if note:
+            bar.pushMessage("SemanticGIS", f"Copied: {line} ({note})", Qgis.MessageLevel.Warning, 8)
+        else:
+            bar.pushMessage("SemanticGIS", f"Copied: {line}", Qgis.MessageLevel.Success, 5)
+
+    def copy_map_attributions(self):
+        copy_layer_attributions(self.iface, None, self.catalogue)
+
     def credentials(self):
         return {
             key: settings_value(key)
@@ -560,7 +589,8 @@ class SemanticGisDock(QDockWidget):
         if kind in ("basemap", "bmservice"):
             return next((b.page for b in c.basemaps if b.id == data[1]), None)
         if kind == "register":
-            return "https://datafordeler.dk/dataoversigt/"
+            register = next((r for r in c.datafordeler if r["title"] == data[1]), None)
+            return (register or {}).get("page") or "/Datasets by Collection/Datafordeleren/"
         if kind in ("reference", "refgeom"):
             return c.realisations.get(c.references[data[1]].realisation, {}).get("path")
         return None
@@ -579,6 +609,7 @@ class SemanticGisDock(QDockWidget):
             leaf, dataset, service = self._lookup(data)
             label = "Open download link" if service.type == "download" else "Add layer"
             menu.addAction(label, lambda: self.add_layer(leaf, dataset, service))
+            menu.addAction("Copy attribution", lambda: self.copy_attribution(dataset.attribution, service.type, dataset.title))
             menu.addAction("Copy endpoint URL", lambda: QApplication.clipboard().setText(service.endpoint))
             if service.portal and service.portal.get("page"):
                 menu.addAction(f"Show portal page ({service.portal['title']})", lambda: self._open_page(service.portal["page"]))
@@ -586,6 +617,9 @@ class SemanticGisDock(QDockWidget):
             basemap = self._basemap(data[1])
             service = next((s for s in basemap.services if s.id == data[2]), None) if kind == "bmservice" else None
             menu.addAction("Add basemap", lambda: self.add_basemap(basemap, service))
+            bm_type = (service or basemap.preferred_service or (basemap.services or [None])[0])
+            menu.addAction("Copy attribution", lambda: self.copy_attribution(
+                basemap.attribution, bm_type.type if bm_type else None, basemap.title))
             if basemap.terms_url:
                 menu.addAction("Open licence/terms", lambda: QDesktopServices.openUrl(QUrl(basemap.terms_url)))
         elif kind == "dataset":
@@ -594,6 +628,9 @@ class SemanticGisDock(QDockWidget):
             if preferred is not None:
                 leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
                 menu.addAction("Add preferred service", lambda: self.add_layer(leaf, dataset, preferred))
+            first = preferred or (dataset.services or [None])[0]
+            menu.addAction("Copy attribution", lambda: self.copy_attribution(
+                dataset.attribution, first.type if first else None, dataset.title))
         elif kind == "refgeom":
             source = self.catalogue.references[data[1]]
             geometry = source.geometries[data[2]]

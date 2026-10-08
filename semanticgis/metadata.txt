@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.5.2
+version=0.6.0
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,7 +16,8 @@ icon=icon.svg
 tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=True
 deprecated=False
-changelog=0.5.2 Basemaps that serve a placeholder image (e.g. CARTO without an API key) are no longer offered as working.
+changelog=0.6.0 Attribution: every layer added gets its credit line (layer attribution, metadata rights, so map_credits() works in layouts); right-click Copy attribution on datasets, services and basemaps; Copy attributions for the map (panel button and the Layers panel's right-click menu). Datafordeleren registers open their semanticgis.org pages.
+    0.5.2 Basemaps that serve a placeholder image (e.g. CARTO without an API key) are no longer offered as working.
     0.5.1 Fix: WCS layers are requested in a CRS the coverage supports (empty cells when the project was in Web Mercator, e.g. after adding OSM); QGIS reprojects.
     0.5.0 WCS layers (e.g. the DHM elevation model as real heights); Datafordeleren's registers and services under Datasets by Collection and on leaves they realise; Datafordeleren twins preferred over Dataforsyningen.
     0.4.1 Fix: the panel no longer disappears when docked as a tab with other panels; the toolbar button brings a tabbed-away panel to the front.

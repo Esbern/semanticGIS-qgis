@@ -66,6 +66,41 @@ class Service:
         return self.check.get("layer_title") or self.title or self.layer_name or self.url
 
 
+# How a service is named in a Danish attribution line ("…, WMS-tjeneste"); files say when they were fetched.
+SERVICE_LABEL = {
+    "wms": "WMS-tjeneste",
+    "wmts": "WMTS-tjeneste",
+    "wfs": "WFS-tjeneste",
+    "wcs": "WCS-tjeneste",
+    "xyz": "tile-tjeneste",
+    "download": "hentet ‹dato›",
+}
+
+
+@dataclass
+class Attribution:
+    """The credit line to put on a map. `status` is verified (checked against the publisher's
+    terms), default (standard wording, terms not checked) or unknown (publisher not recorded)."""
+
+    text: str = ""
+    status: str = "unknown"
+    licence: str | None = None
+    terms_url: str | None = None
+
+    def line(self, service_type=None):
+        """The line for one service type; {service} is the service, or 'hentet <date>' for files."""
+        return self.text.replace("{service}", SERVICE_LABEL.get(service_type or "download", SERVICE_LABEL["download"]))
+
+
+def make_attribution(a):
+    if not a:
+        return None
+    if isinstance(a, str):   # services.v1.json before attribution records
+        return Attribution(text=a, status="verified")
+    return Attribution(text=a.get("text", ""), status=a.get("status", "unknown"),
+                       licence=a.get("licence"), terms_url=a.get("terms_url"))
+
+
 def make_service(s):
     return Service(
         id=s["id"],
@@ -91,7 +126,7 @@ class Basemap:
     services: list
     period: str | None = None
     provider: str | None = None
-    attribution: str | None = None
+    attribution: Attribution | None = None
     licence: str | None = None
     terms_url: str | None = None
     collection_method: str | None = None
@@ -111,6 +146,7 @@ class Dataset:
     leaves: list
     services: list
     owner: str | None = None
+    attribution: Attribution | None = None
 
     @property
     def preferred_service(self):
@@ -223,6 +259,7 @@ class Catalogue:
                 leaves=d.get("leaves", []),
                 owner=d.get("owner"),
                 services=[make_service(s) for s in d.get("services", [])],
+                attribution=make_attribution(d.get("attribution")),
             )
 
         self.leaves = {}
@@ -268,7 +305,7 @@ class Catalogue:
             Basemap(
                 id=b["id"], title=b["title"], kind=b.get("kind", ""), page=b.get("page", ""),
                 services=[make_service(s) for s in b.get("services", [])],
-                period=b.get("period"), provider=b.get("provider"), attribution=b.get("attribution"),
+                period=b.get("period"), provider=b.get("provider"), attribution=make_attribution(b.get("attribution")),
                 licence=b.get("licence"), terms_url=b.get("terms_url"),
                 collection_method=b.get("collection_method"), leaf=b.get("leaf"),
             )
@@ -276,7 +313,7 @@ class Catalogue:
         ]
 
         # Datafordeleren's registers (its own data overview), as ordinary datasets so that ordering,
-        # the preferred service and search work the same way. Their page is on datafordeler.dk.
+        # the preferred service and search work the same way. Their pages are vault notes.
         self.datafordeler = []
         for r_index, register in enumerate(services.get("datafordeler", [])):
             items = []
@@ -284,10 +321,11 @@ class Catalogue:
                 dataset = Dataset(
                     id=f"datafordeler:{r_index}:{d_index}", title=d["title"], page=d.get("page", ""), leaves=[],
                     services=[make_service(s) for s in d.get("services", [])], owner=register["title"],
+                    attribution=make_attribution(d.get("attribution")),
                 )
                 self.datasets[dataset.id] = dataset
                 items.append(dataset)
-            self.datafordeler.append({"title": register["title"], "datasets": items})
+            self.datafordeler.append({"title": register["title"], "page": register.get("page"), "datasets": items})
         self.leaf_registers = services.get("leaf_registers", {})
 
         # Browsing structures for the other entry points.
