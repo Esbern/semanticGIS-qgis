@@ -69,6 +69,7 @@ class Dataset:
     page: str
     leaves: list
     services: list
+    owner: str | None = None
 
 
 @dataclass
@@ -163,6 +164,7 @@ class Catalogue:
                 title=d["title"],
                 page=d.get("page", ""),
                 leaves=d.get("leaves", []),
+                owner=d.get("owner"),
                 services=[
                     Service(
                         id=s["id"],
@@ -216,6 +218,13 @@ class Catalogue:
                         )
                     )
 
+        # Browsing structures for the other entry points.
+        self.owners = services.get("owners", {})
+        self.collections = services.get("collections", [])
+        self.classical_themes = index.get("classical_themes", [])
+        self.collection_methods = index.get("collection_methods", [])
+        self.realisations = {r["id"]: r for r in index.get("realisations", [])}
+
         self.spheres = []
         self.twigs = {}
         for entry in index["spheres"]:
@@ -235,6 +244,35 @@ class Catalogue:
                 self.twigs[twig_id] = twig
             self.spheres.append(sphere)
 
+    @property
+    def thematic_spheres(self):
+        return [s for s in self.spheres if s.kind != "reference"]
+
+    @property
+    def reference_framework(self):
+        return next((s for s in self.spheres if s.kind == "reference"), None)
+
+    def datasets_by_owner(self):
+        """Datasets per owner folder (the Datasets by Owner structure of the site)."""
+        groups = {}
+        for dataset in self.datasets.values():
+            parts = dataset.page.strip("/").split("/")
+            folder = parts[1] if len(parts) > 2 and parts[0] == "Datasets by Owner" else (dataset.owner or "")
+            groups.setdefault(folder, []).append(dataset)
+        return {owner: sorted(items, key=lambda d: d.title.lower()) for owner, items in groups.items()}
+
+    def realisations_by_method(self):
+        groups = {}
+        for rel in self.realisations.values():
+            groups.setdefault(rel.get("collection_method"), []).append(rel)
+        return groups
+
+    def references_for(self, leaf_id=None, realisation_id=None):
+        return [
+            r for r in self.references
+            if (leaf_id is None or r.leaf == leaf_id) and (realisation_id is None or r.realisation == realisation_id)
+        ]
+
     def search(self, text):
         """Leaves whose title or question contains every word of `text`."""
         words = text.lower().split()
@@ -243,6 +281,12 @@ class Catalogue:
             for leaf in sorted(self.leaves.values(), key=lambda l: l.title)
             if all(w in f"{leaf.title} {leaf.question}".lower() for w in words)
         ]
+
+    def search_datasets(self, text, limit=200):
+        """Datasets whose title contains every word of `text`."""
+        words = text.lower().split()
+        hits = [d for d in self.datasets.values() if all(w in d.title.lower() for w in words)]
+        return sorted(hits, key=lambda d: d.title.lower())[:limit]
 
 
 def _read(source, name, timeout):

@@ -11,11 +11,17 @@ SemanticGIS (the SPHERE protocol) organises geospatial data as a network rather 
 
 ## Features
 
-- **Browse** the network: sphere → twig → leaf → dataset → service. A ★ marks the leaves that have that twig as their primary lens.
-- **Search** leaves by title or by the question they answer.
+- **Browse** from six entry points, the same as on the website:
+  - **Classical Classifications:** INSPIRE, ISO 19115 and UN-GGIM themes and the twigs they land in.
+  - **Collection Methods:** register, field measurement, passive or active remote sensing, modelled, volunteered and cartographic, with the realisations of each.
+  - **Datasets by Collection:** the Grunddatamodellen registers. These open their documentation pages, since they are accessed through GraphQL and file downloads.
+  - **Datasets by Owner:** every harvested dataset with services, by publishing organisation.
+  - **SPHERE:** the thematic spheres, then twig, leaf, dataset and service. A ★ marks leaves whose primary lens is that twig.
+  - **Reference Framework:** coordinate systems and the reference units that other data refers to by ID: administrative units, statistical units and addresses. Their geometries, such as NUTS and LAU, can be loaded at each scale.
+- **Search** leaves (by title or by the question they answer) and datasets (by title).
 - **Add a layer** by double-clicking a service. WFS, WMS and WMTS services are supported. By default, WFS layers fetch only the features in the current map view.
 - **Verified services only** (on by default) hides services that failed the last capabilities check. That check confirms each layer still exists on its server.
-- **Provenance tags.** Every added layer is grouped under *SemanticGIS › <leaf>* and tagged with custom properties (`semanticgis/leaf`, `semanticgis/dataset`, `semanticgis/service`). A saved project therefore still knows where each layer came from.
+- **Provenance tags.** Every added layer is grouped under *SemanticGIS › <leaf>* (or the owner, when browsed by owner) and tagged with custom properties (`semanticgis/leaf`, `semanticgis/dataset`, `semanticgis/service`). A saved project therefore still knows where each layer came from.
 - **Context menu:** open the leaf or dataset page on semanticgis.org, open download links, or copy an endpoint URL.
 - **Works offline** from the last catalogue it loaded.
 

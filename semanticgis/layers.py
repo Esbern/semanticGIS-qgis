@@ -116,26 +116,59 @@ def build_layer(service, dataset, token=None, only_in_view=True, preferred_crs=P
     return layer
 
 
-def place_layer(layer, service, leaf, dataset):
-    """Tag the layer with its SPHERE provenance and add it under SemanticGIS > <leaf>. Main thread only."""
+def _add_to_group(layer, group_name):
     from qgis.core import QgsProject
 
+    project = QgsProject.instance()
+    root = project.layerTreeRoot()
+    group = root.findGroup(ROOT_GROUP) or root.insertGroup(0, ROOT_GROUP)
+    sub = group.findGroup(group_name) or group.addGroup(group_name)
+    project.addMapLayer(layer, False)
+    sub.insertLayer(0, layer)
+    return layer
+
+
+def place_layer(layer, service, leaf, dataset, group_name=None):
+    """Tag the layer with its SPHERE provenance and add it under SemanticGIS > <leaf or owner>.
+
+    `leaf` may be None for a dataset browsed by owner. Main thread only.
+    """
     for key, value in {
-        "leaf": leaf.id,
-        "leaf_title": leaf.title,
+        "leaf": leaf.id if leaf else "",
+        "leaf_title": leaf.title if leaf else "",
         "dataset": dataset.id,
         "dataset_page": dataset.page,
         "service": service.id,
     }.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)
+    return _add_to_group(layer, leaf.title if leaf else (group_name or "Datasets"))
 
-    project = QgsProject.instance()
-    root = project.layerTreeRoot()
-    group = root.findGroup(ROOT_GROUP) or root.insertGroup(0, ROOT_GROUP)
-    leaf_group = group.findGroup(leaf.title) or group.addGroup(leaf.title)
-    project.addMapLayer(layer, False)
-    leaf_group.insertLayer(0, layer)
+
+def build_reference_layer(source, geometry):
+    """A layer for one geometry of a reference unit, read remotely (range requests) by OGR.
+
+    Safe to run in a QgsTask; the caller moves it to the main thread.
+    """
+    from qgis.core import QgsVectorLayer
+
+    url = geometry.url
+    path = "/vsicurl/" + url if url.startswith(("http://", "https://")) else url
+    layer = QgsVectorLayer(path, f"{source.unit} {geometry.scale}", "ogr")
+    if not layer.isValid():
+        raise RuntimeError(layer.error().summary() or f"Could not open {url}")
     return layer
+
+
+def place_reference_layer(layer, source, geometry):
+    for key, value in {
+        "reference": source.realisation,
+        "reference_unit": source.unit,
+        "id_scheme": source.id_scheme,
+        "scale": geometry.scale,
+        "leaf": source.leaf or "",
+    }.items():
+        layer.setCustomProperty(PROPERTY_PREFIX + key, value)
+    return _add_to_group(layer, "Reference Framework")
 
 
 def add_service_layer(service, leaf, dataset, token=None, only_in_view=True):
