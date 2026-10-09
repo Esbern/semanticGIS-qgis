@@ -37,6 +37,15 @@ from .layers import (
 from .settings import DEFAULT_SITE_URL, SETTINGS_PREFIX, SettingsDialog
 
 ROLE = Qt.ItemDataRole.UserRole + 1
+
+
+def plugin_version():
+    """The plugin's own version, from metadata.txt."""
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "metadata.txt"), encoding="utf8") as metadata:
+            return next((line.split("=", 1)[1].strip() for line in metadata if line.startswith("version=")), "")
+    except OSError:
+        return ""
 STATUS_TEXT = {
     "ok": "",
     "needs-auth": "not checked: needs a key",
@@ -140,9 +149,11 @@ class SemanticGisDock(QDockWidget):
             checked = self.catalogue.services_checked or "never"
             services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
             self.status.setText(
-                f"SPHERE v{self.catalogue.version} · {len(self.catalogue.leaves)} leaves · "
+                f"SemanticGIS {plugin_version()} · {len(self.catalogue.leaves)} leaves · "
                 f"{services}" + (" · offline copy" if from_cache else "")
             )
+            self.status.setToolTip(f"SemanticGIS plugin {plugin_version()} · SPHERE index v{self.catalogue.version} "
+                                   f"· catalogue from {source}")
             self.rebuild()
 
         self._task = QgsTask.fromFunction("Load SemanticGIS catalogue", task_function, on_finished=on_finished)
