@@ -35,3 +35,19 @@ def install():
 def uninstall(preprocessor_id):
     if preprocessor_id:
         QgsNetworkAccessManager.removeRequestPreprocessor(preprocessor_id)
+
+
+def get(url, timeout_ms=30000):
+    """GET through the QGIS network manager (proxy settings, keys added by access.py); bytes.
+    Safe in a QgsTask. Raises OSError with the HTTP status on failure."""
+    from qgis.core import QgsBlockingNetworkRequest
+    from qgis.PyQt.QtCore import QUrl
+
+    request = QgsBlockingNetworkRequest()
+    network_request = QNetworkRequest(QUrl(url))
+    network_request.setTransferTimeout(timeout_ms)
+    if request.get(network_request, True) != QgsBlockingNetworkRequest.ErrorCode.NoError:
+        reply = request.reply()
+        status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+        raise OSError(f"HTTP {status}: {request.errorMessage()}" if status else request.errorMessage())
+    return bytes(request.reply().content())

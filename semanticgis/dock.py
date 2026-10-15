@@ -23,7 +23,9 @@ from qgis.PyQt.QtWidgets import (
 
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
+from . import extensions as ext
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
+from .network import get as network_get
 from .join_dialog import JoinDialog
 from .layers import (
     PREFERRED_CRS,
@@ -37,6 +39,12 @@ from .layers import (
 from .settings import DEFAULT_SITE_URL, SETTINGS_PREFIX, SettingsDialog
 
 ROLE = Qt.ItemDataRole.UserRole + 1
+
+
+def extension_servers():
+    """GitLab servers with SemanticGIS extension projects (Settings), e.g. ['git.ruc.dk']."""
+    text = settings_value("extension_servers", "") or ""
+    return [s.strip().rstrip("/") for s in text.replace(";", ",").split(",") if s.strip()]
 
 
 def plugin_version():
@@ -133,9 +141,17 @@ class SemanticGisDock(QDockWidget):
         source = settings_value("catalogue_source", DEFAULT_BASE_URL) or DEFAULT_BASE_URL
         cache_dir = os.path.join(QgsApplication.qgisSettingsDirPath(), "semanticgis", "cache")
         self.status.setText(f"Loading catalogue from {source}…")
+        servers = extension_servers()
+        KEYS.set_extra_profiles({p.id: p for p in map(ext.server_profile, servers)})
+        if servers and not KEYS.loaded:
+            KEYS.load(prompt=True)   # extensions are read with the user's GitLab token
 
         def task_function(task):
-            return load_catalogue(source, cache_dir)
+            catalogue, from_cache = load_catalogue(source, cache_dir)
+            found, problems = ext.load_extensions(servers, network_get, catalogue.leaves) if servers else ([], [])
+            ext.merge(catalogue, found)
+            catalogue.extension_problems = problems + [p for e in found for p in e.problems]
+            return catalogue, from_cache
 
         def on_finished(exception, result=None):
             if exception is not None:
@@ -148,6 +164,13 @@ class SemanticGisDock(QDockWidget):
             self.join_button.setEnabled(bool(self.catalogue.references))
             checked = self.catalogue.services_checked or "never"
             services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
+            extensions = getattr(self.catalogue, "extensions", [])
+            if extensions:
+                services += f" · {len(extensions)} extension(s)"
+            problems = getattr(self.catalogue, "extension_problems", [])
+            if problems:
+                self.iface.messageBar().pushMessage("SemanticGIS", "Extensions: " + "; ".join(problems[:3]),
+                                                    Qgis.MessageLevel.Warning, 10)
             self.status.setText(
                 f"SemanticGIS {plugin_version()} · {len(self.catalogue.leaves)} leaves · "
                 f"{services}" + (" · offline copy" if from_cache else "")
@@ -164,8 +187,7 @@ class SemanticGisDock(QDockWidget):
             JoinDialog(self.iface, self.catalogue, self).show()
 
     def open_settings(self):
-        profiles = self.catalogue.access_profiles if self.catalogue else KEYS.profiles
-        if SettingsDialog(profiles, self).exec():
+        if SettingsDialog(KEYS.profiles, self).exec():
             self.reload()
 
     # -- tree ----------------------------------------------------------------------
@@ -229,7 +251,11 @@ class SemanticGisDock(QDockWidget):
         preferred = self._preferred(dataset)
         tip = dataset.page + (f"\nDouble-click adds the preferred service ({preferred.type.upper()}"
                               f"{' · ' + preferred.portal['title'] if preferred.portal else ''})" if preferred else "")
-        item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), tip)
+        title = dataset.title
+        if dataset.extension is not None:   # private: from a research group's extension project
+            title = f"🔐 {dataset.title}"
+            tip = f"Private, from {dataset.extension.title} ({dataset.extension.server}/{dataset.extension.path})\n" + tip
+        item = self._item(title, ("dataset", dataset.id, leaf_id), tip)
         return item if self._service_items(item, dataset, leaf_id) else None
 
     def _reference_items(self, parent, references):
@@ -481,6 +507,21 @@ class SemanticGisDock(QDockWidget):
                 note.setEnabled(False)
                 item.appendRow(note)
             root.appendRow(item)
+        if getattr(self.catalogue, "extensions", None):
+            root.appendRow(self._extensions_branch())
+
+    def _extensions_branch(self):
+        top = self._top("Extensions", "Private datasets of your research groups (GitLab projects with the topic "
+                        f"'{ext.TOPIC}'), also shown under the leaves they realise")
+        for extension in self.catalogue.extensions:
+            project = self._item(f"🔐 {extension.title}", ("page", extension.web_url),
+                                 f"{extension.server}/{extension.path}")
+            for dataset in extension.datasets:
+                ds_item = self._dataset_item(dataset)
+                if ds_item is not None:
+                    project.appendRow(ds_item)
+            top.appendRow(project)
+        return top
 
     # -- actions -------------------------------------------------------------------
 

@@ -100,6 +100,11 @@ def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS):
     check = service.check
     if service.type == "xyz":
         return xyz_uri(url, service.zmin, service.zmax), "wms"
+    if service.type in ("cog", "ogr"):
+        # A single cloud-native file (COG raster, GeoParquet/FlatGeobuf/GeoPackage vector) read by
+        # GDAL with range requests; header keys reach GDAL per host (access.py), not via the URI.
+        path = url if url.startswith("/vsi") or "://" not in url else "/vsicurl/" + url
+        return path, ("gdal" if service.type == "cog" else "ogr")
     if service.type == "wcs":
         # Real values (e.g. heights), not a picture. Request a CRS the coverage supports (the
         # project CRS if it is one of them); QGIS reprojects on the fly. Asking for an unsupported
@@ -128,7 +133,7 @@ def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS
 
     uri, provider = layer_source(service, only_in_view, preferred_crs)
     name = f"{dataset.title} — {service.label}" if service.label != dataset.title else dataset.title
-    layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
+    layer = QgsVectorLayer(uri, name, provider) if provider in ("WFS", "ogr") else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
         raise RuntimeError(layer.error().summary() or f"The {service.type.upper()} layer could not be loaded")
     return layer
@@ -175,7 +180,7 @@ def build_basemap_layer(basemap, service, preferred_crs=PREFERRED_CRS):
 
     uri, provider = layer_source(service, True, preferred_crs)
     name = basemap.title + (f" ({basemap.period})" if basemap.period and basemap.period not in basemap.title else "")
-    layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
+    layer = QgsVectorLayer(uri, name, provider) if provider in ("WFS", "ogr") else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
         raise RuntimeError(layer.error().summary() or f"The basemap {basemap.title} could not be loaded")
     return layer

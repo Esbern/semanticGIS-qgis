@@ -18,7 +18,8 @@ DEFAULT_BASE_URL = "https://semanticgis.org/Data/assets/"
 INDEX_FILE = "sphere-index.v1.json"
 SERVICES_FILE = "services.v1.json"
 MIN_INDEX_VERSION = (0, 4)
-LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz", "wcs")
+LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz", "wcs", "cog", "ogr")
+FILE_TYPES = ("xyz", "cog", "ogr")   # loadable without a layer name: a tile template or a single file
 ACRONYMS = {"ict", "crs"}
 
 
@@ -28,8 +29,9 @@ class CatalogueError(Exception):
 
 @dataclass
 class AccessProfile:
-    """A provider whose services need the user's own key, sent as the query parameter `param`
-    to the hosts listed (a host matches itself and its subdomains)."""
+    """A provider whose services need the user's own key, sent to the hosts listed (a host
+    matches itself and its subdomains) as the query parameter `param`, or, when `header` is set,
+    as that HTTP header (e.g. GitLab's PRIVATE-TOKEN)."""
 
     id: str
     title: str
@@ -38,6 +40,7 @@ class AccessProfile:
     signup_url: str | None = None
     cost: str | None = None
     page: str | None = None
+    header: str | None = None
 
     def matches(self, host):
         host = (host or "").lower()
@@ -56,7 +59,8 @@ LEGACY_AUTH = {"datafordeler": "datafordeler", "dataforsyningen-token": "datafor
 
 def make_profile(p):
     return AccessProfile(id=p["id"], title=p.get("title", p["id"]), param=p["param"], hosts=[h.lower() for h in p["hosts"]],
-                         signup_url=p.get("signup_url"), cost=p.get("cost"), page=p.get("page"))
+                         signup_url=p.get("signup_url"), cost=p.get("cost"), page=p.get("page"),
+                         header=p.get("header"))
 
 
 @dataclass
@@ -84,7 +88,7 @@ class Service:
 
     @property
     def loadable(self):
-        return self.type in LOADABLE_TYPES and (self.type == "xyz" or bool(self.layer_name))
+        return self.type in LOADABLE_TYPES and (self.type in FILE_TYPES or bool(self.layer_name))
 
     @property
     def layer_name(self):
@@ -182,6 +186,9 @@ class Dataset:
     services: list
     owner: str | None = None
     attribution: Attribution | None = None
+    extension: object | None = None   # the extensions.Extension it comes from, for private datasets
+    stac: dict | None = None           # its STAC Collection (extensions only)
+    stac_path: str | None = None       # the Collection's path in the extension project
 
     @property
     def preferred_service(self):

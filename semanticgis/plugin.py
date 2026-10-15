@@ -10,6 +10,8 @@ from qgis.core import QgsProject
 
 from . import network
 from .access import KEYS
+from .dock import extension_servers
+from .extensions import server_profile
 from .attribution import copy_layer_attributions
 from .dock import SemanticGisDock
 
@@ -27,6 +29,7 @@ class SemanticGisPlugin:
         self.network_fix = network.install()
         # Keys are added to requests as they are sent; an encrypted store stays locked until needed.
         KEYS.load(prompt=False)
+        KEYS.set_extra_profiles({p.id: p for p in map(server_profile, extension_servers())})
         KEYS.install()
         QgsProject.instance().readProject.connect(self._project_read)
         icon = QIcon(os.path.join(os.path.dirname(__file__), "icon.svg"))
