@@ -189,6 +189,7 @@ class Dataset:
     extension: object | None = None   # the extensions.Extension it comes from, for private datasets
     stac: dict | None = None           # its STAC Collection (extensions only)
     stac_path: str | None = None       # the Collection's path in the extension project
+    stac_commit: str | None = None     # its version when read: a save must start from it
 
     @property
     def preferred_service(self):

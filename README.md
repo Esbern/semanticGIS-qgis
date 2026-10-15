@@ -64,6 +64,16 @@ Alternatively, install the zip of a [release](https://github.com/Esbern/semantic
 
 The plugin requires QGIS 3.34 or later, and runs on both QGIS 3 (Qt5) and QGIS 4 (Qt6).
 
+## Research group extensions (prototype, dev channel)
+
+Private datasets of a research group live in a GitLab project (e.g. on a university GitLab) marked with the topic `semanticgis`: a `semanticgis.json` manifest, a STAC `catalog.json` and one STAC Collection per dataset, whose `semanticgis:leaves` name the SPHERE leaves it realises. Data files (COG, GeoParquet) go in the project's package registry. Access is GitLab membership: enter the server under *Settings › Extension servers* and your GitLab token (scope `api` to publish, `read_api` to read).
+
+- The datasets appear, marked 🔐, under their leaves and in an **Extensions** branch; double-click loads them (the token is sent as a header, never stored in layers or projects).
+- Right-click a layer in QGIS's Layers panel › **SemanticGIS**:
+  - **Link to leaf…** stores the leaves in the layer's metadata (keywords, vocabulary `semanticgis:leaf`);
+  - **Publish to research group…** writes the layer as COG (raster) or GeoParquet (vector) to the package registry and commits its STAC description and the catalog link, in one commit;
+  - **Edit metadata…** / **Save metadata to GitLab** edit the description in QGIS's metadata editor and commit it. A save that started from an older version than GitLab's is refused and names the colleague's change: nothing is overwritten.
+
 ## Settings
 
 | Setting | Default | Purpose |

@@ -158,6 +158,10 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
     """
     from .attribution import stamp
 
+    if dataset.stac is not None:   # extension datasets: their STAC description, editable in QGIS
+        from .stac_metadata import metadata_from_stac
+
+        layer.setMetadata(metadata_from_stac(dataset))
     stamp(layer, dataset.attribution, service.type)
     for key, value in {
         "leaf": leaf.id if leaf else "",

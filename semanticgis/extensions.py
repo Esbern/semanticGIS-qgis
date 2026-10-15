@@ -12,6 +12,7 @@ datasets to the leaves they name. This module has no QGIS imports: `get` is a fu
 url -> bytes supplied by the caller.
 """
 
+import base64
 import json
 import posixpath
 from dataclasses import dataclass, field
@@ -36,6 +37,9 @@ class Extension:
     branch: str
     datasets: list = field(default_factory=list)
     problems: list = field(default_factory=list)
+    catalog_path: str = "catalog.json"
+    catalog: dict | None = None
+    catalog_commit: str | None = None   # version of catalog.json when read (conflict check on save)
 
 
 def server_host(server):
@@ -65,9 +69,16 @@ def discover(server, get):
     ]
 
 
-def _raw(extension, path):
-    return (f"{_api(extension.server)}/projects/{extension.project_id}/repository/files/"
-            f"{quote(path, safe='')}/raw?ref={quote(extension.branch, safe='')}")
+def project_api(extension):
+    return f"{_api(extension.server)}/projects/{extension.project_id}"
+
+
+def read_file(extension, path, get):
+    """(text, last_commit_id) of a file in the project: the commit id is the version a later save
+    must start from, so GitLab can refuse a save over someone else's newer change."""
+    url = f"{project_api(extension)}/repository/files/{quote(path, safe='')}?ref={quote(extension.branch, safe='')}"
+    data = json.loads(get(url))
+    return base64.b64decode(data["content"]).decode("utf-8"), data["last_commit_id"]
 
 
 def leaf_id(reference, leaves):
@@ -121,20 +132,24 @@ def dataset_from_collection(extension, path, collection, leaves):
 
 def load_extension(extension, get, leaves):
     """Read the manifest, the catalog and its collections into extension.datasets."""
-    manifest = json.loads(get(_raw(extension, "semanticgis.json")))
+    manifest = json.loads(read_file(extension, "semanticgis.json", get)[0])
     extension.title = manifest.get("title") or extension.title
     catalog_path = manifest.get("catalog", "catalog.json")
-    catalog = json.loads(get(_raw(extension, catalog_path)))
+    text, extension.catalog_commit = read_file(extension, catalog_path, get)
+    catalog = json.loads(text)
+    extension.catalog_path, extension.catalog = catalog_path, catalog
     for link in catalog.get("links", []):
         if link.get("rel") != "child":
             continue
         path = posixpath.normpath(posixpath.join(posixpath.dirname(catalog_path), link["href"]))
         try:
-            collection = json.loads(get(_raw(extension, path)))
-        except (OSError, ValueError) as error:
+            text, commit = read_file(extension, path, get)
+            collection = json.loads(text)
+        except (OSError, ValueError, KeyError) as error:
             extension.problems.append(f"{path}: {error}")
             continue
         dataset, problems = dataset_from_collection(extension, path, collection, leaves)
+        dataset.stac_commit = commit
         extension.datasets.append(dataset)
         extension.problems.extend(problems)
     return extension

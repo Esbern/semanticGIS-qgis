@@ -8,7 +8,7 @@ from qgis.PyQt.QtWidgets import QAction
 
 from qgis.core import QgsProject
 
-from . import network, repository
+from . import network, publish, repository
 from .access import KEYS
 from .dock import extension_servers
 from .extensions import server_profile
@@ -68,6 +68,23 @@ class SemanticGisPlugin:
                            lambda: copy_layer_attributions(self.iface, layers, catalogue))
         menu.addAction("Copy attributions of all layers (SemanticGIS)",
                        lambda: copy_layer_attributions(self.iface, None, catalogue))
+        if len(layers) != 1:
+            return
+        layer = layers[0]
+        sub = menu.addMenu("SemanticGIS")
+        if catalogue is None:
+            action = sub.addAction("Open the SemanticGIS panel to link, publish or save")
+            action.setEnabled(False)
+            return
+        sub.addAction("Link to leaf…", lambda: publish.link_to_leaf(self.iface, catalogue, layer))
+        dataset = catalogue.datasets.get(layer.customProperty("semanticgis/dataset") or "")
+        if dataset is not None and dataset.extension is not None:
+            sub.addAction("Edit metadata…", lambda: self.iface.showLayerProperties(layer, "mOptsPage_Metadata"))
+            sub.addAction(f"Save metadata to GitLab ({dataset.extension.title})",
+                          lambda: publish.save_metadata(self.iface, catalogue, layer, self.dock.rebuild))
+        elif publish.publishable(layer):
+            sub.addAction("Publish to research group…",
+                          lambda: publish.publish(self.iface, catalogue, layer, self.dock.reload))
 
     def _ensure_dock(self):
         if self.dock is None:

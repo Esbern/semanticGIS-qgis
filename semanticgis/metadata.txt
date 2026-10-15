@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.8.0-dev2
+version=0.8.0-dev3
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,7 +16,8 @@ icon=icon.svg
 tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=False
 deprecated=False
-changelog=0.8.0-dev2 Prototype: private extensions from GitLab (Settings → Extension servers); their datasets appear under the leaves they name and in an Extensions branch. Includes 0.7.2.
+changelog=0.8.0-dev3 Prototype: write back to research group projects. Right-click a layer › SemanticGIS: Link to leaf…, Publish to research group… (COG/GeoParquet to the package registry + STAC, one commit), Edit metadata… and Save metadata to GitLab (refused, not overwritten, after a colleague's change).
+    0.8.0-dev2 Prototype: private extensions from GitLab (Settings → Extension servers); their datasets appear under the leaves they name and in an Extensions branch. Includes 0.7.2.
     0.7.2 Updates through QGIS: the plugin adds its update channel to QGIS's plugin repositories, so Plugins > Manage and Install Plugins offers new versions.
     0.7.1 The panel footer shows the plugin's name and version (SemanticGIS 0.7.1); the SPHERE index version is in its tooltip.
     0.7.0 Keys per access profile (Datafordeleren, Dataforsyningen, CARTO; more come with the catalogue): added to requests as they are sent, never saved in layers or projects; optionally encrypted with the QGIS master password; 🔒/🔑 markers and Set/How to get a key on the right-click menu. CARTO basemaps work with your own CARTO key.
