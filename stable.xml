@@ -1,3 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
+  <pyqgis_plugin name="SemanticGIS" version="0.7.2" plugin_id="semanticgis">
+    <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
+    <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
+    <version>0.7.2</version>
+    <changelog>0.7.2 Updates through QGIS: the plugin adds its update channel to QGIS's plugin repositories, so Plugins &gt; Manage and Install Plugins offers new versions.
+0.7.1 The panel footer shows the plugin's name and version (SemanticGIS 0.7.1); the SPHERE index version is in its tooltip.
+0.7.0 Keys per access profile (Datafordeleren, Dataforsyningen, CARTO; more come with the catalogue): added to requests as they are sent, never saved in layers or projects; optionally encrypted with the QGIS master password; 🔒/🔑 markers and Set/How to get a key on the right-click menu. CARTO basemaps work with your own CARTO key.
+0.6.0 Attribution: every layer added gets its credit line (layer attribution, metadata rights, so map_credits() works in layouts); right-click Copy attribution on datasets, services and basemaps; Copy attributions for the map (panel button and the Layers panel's right-click menu). Datafordeleren registers open their semanticgis.org pages.
+0.5.2 Basemaps that serve a placeholder image (e.g. CARTO without an API key) are no longer offered as working.
+0.5.1 Fix: WCS layers are requested in a CRS the coverage supports (empty cells when the project was in Web Mercator, e.g. after adding OSM); QGIS reprojects.
+0.5.0 WCS layers (e.g. the DHM elevation model as real heights); Datafordeleren's registers and services under Datasets by Collection and on leaves they realise; Datafordeleren twins preferred over Dataforsyningen.
+0.4.1 Fix: the panel no longer disappears when docked as a tab with other panels; the toolbar button brings a tabbed-away panel to the front.
+0.4.0 Basemaps: Danish (Skærmkort, orthophotos, målebordsblade, shaded relief) and international (OpenStreetMap, OpenTopoMap, CARTO, Esri, EOX Sentinel-2) basemaps, added under your data with attribution.
+0.3.3 Preferred services: providers ranked by the knowledge base (Datafordeleren before Dataforsyningen), ★ marks the preferred service, double-click a dataset to add it; realisations in priority order.
+0.3.2 Dataforsyningen layers work in QGIS 4 (HTTP/1.1 workaround for the API gateway); Datafordeleren via API key on the modernised wms./wmts./wfs. hosts; credentials only from Settings.
+0.3.1 Every node has 'Show web page' on right-click; twig titles from their pages; empty entry points explain why.
+0.3.0 Six entry points like the website: Classical Classifications, Collection Methods, Datasets by Collection, Datasets by Owner, SPHERE and Reference Framework. All harvested datasets browsable by owner; reference geometries (NUTS, LAU) loadable at each scale; search covers datasets.
+0.2.0 Join a table to reference units (NUTS, LAU): the join is detected from the table's IDs or names, and only the needed geometries are fetched at the chosen scale.
+0.1.0 First version: browse and search the SPHERE network, add verified WFS/WMS/WMTS layers.</changelog>
+    <qgis_minimum_version>3.34</qgis_minimum_version>
+    <qgis_maximum_version>4.99</qgis_maximum_version>
+    <homepage>https://semanticgis.org</homepage>
+    <file_name>semanticgis.0.7.2.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.2/semanticgis/icon.svg</icon>
+    <author_name>Esbern Holmes</author_name>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.2/semanticgis.0.7.2.zip</download_url>
+    <uploaded_by>Esbern Holmes</uploaded_by>
+    <create_date>2026-10-15T12:51:13Z</create_date>
+    <update_date>2026-10-15T12:51:13Z</update_date>
+    <experimental>False</experimental>
+    <deprecated>False</deprecated>
+    <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
+    <repository>https://github.com/Esbern/semanticGIS-qgis</repository>
+    <tags>wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics</tags>
+    <server>False</server>
+  </pyqgis_plugin>
 </plugins>
