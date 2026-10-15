@@ -8,12 +8,12 @@ from qgis.PyQt.QtWidgets import QAction
 
 from qgis.core import QgsProject
 
-from . import network
+from . import network, repository
 from .access import KEYS
 from .dock import extension_servers
 from .extensions import server_profile
 from .attribution import copy_layer_attributions
-from .dock import SemanticGisDock
+from .dock import SemanticGisDock, plugin_version
 
 MENU = "&SemanticGIS"
 
@@ -27,6 +27,7 @@ class SemanticGisPlugin:
 
     def initGui(self):
         self.network_fix = network.install()
+        repository.register(plugin_version())   # QGIS then offers updates of the plugin
         # Keys are added to requests as they are sent; an encrypted store stays locked until needed.
         KEYS.load(prompt=False)
         KEYS.set_extra_profiles({p.id: p for p in map(server_profile, extension_servers())})

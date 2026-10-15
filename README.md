@@ -47,11 +47,20 @@ The reference units, their ID schemes and their geometries per scale are part of
 
 ## Installation
 
-The plugin is not yet in the official QGIS plugin repository. To install it:
+The plugin is not in the official QGIS plugin repository yet; it has its own update channels instead:
 
-1. Download or build `semanticgis-<version>.zip` (run `scripts/package.sh`).
-2. In QGIS, open **Plugins › Manage and Install Plugins › Install from ZIP**.
+| Channel | For | Address |
+| --- | --- | --- |
+| stable | students and everyday use | `https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/plugin-repository/stable.xml` |
+| dev | trying prototypes (versions like 0.8.0-dev1) | `https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/plugin-repository/dev.xml` |
+
+1. In QGIS, open **Plugins › Manage and Install Plugins › Settings**, click **Add…**, give the channel a name (e.g. *SemanticGIS*) and paste its address.
+2. Find **SemanticGIS** under **All** and click **Install Plugin**. QGIS offers new versions under **Upgradeable** from then on.
 3. Open the panel from **Web › SemanticGIS**.
+
+Alternatively, install the zip of a [release](https://github.com/Esbern/semanticGIS-qgis/releases) with **Install from ZIP**; the plugin then adds the stable channel (or, for a prototype, the dev channel) itself the first time it starts, so later versions also arrive as updates.
+
+**Releasing** (maintainers): raise `version` in `semanticgis/metadata.txt`, add a changelog line, commit, then run `python3 scripts/release.py stable` (from `main`) or `python3 scripts/release.py dev` (for a version like `0.8.0-dev2`). The script builds `dist/semanticgis.<version>.zip`, publishes it as a GitHub release and lists it in the channel's `plugins.xml` on the `plugin-repository` branch.
 
 The plugin requires QGIS 3.34 or later, and runs on both QGIS 3 (Qt5) and QGIS 4 (Qt6).
 
