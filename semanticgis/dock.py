@@ -2,7 +2,7 @@
 
 import os
 
-from qgis.core import Qgis, QgsApplication, QgsProject, QgsSettings, QgsTask
+from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsProject, QgsSettings, QgsTask
 from qgis.PyQt.QtCore import QCoreApplication, QUrl, Qt
 from qgis.PyQt.QtGui import QDesktopServices, QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
@@ -521,8 +521,17 @@ class SemanticGisDock(QDockWidget):
 
         def on_finished(exception, layer=None):
             if exception is not None:
-                self.iface.messageBar().pushMessage("SemanticGIS", str(exception), Qgis.MessageLevel.Critical)
-                return
+                # Some QGIS installations cannot create certain layers (seen with Datafordeleren's WMTS)
+                # outside the main thread although the same layer is valid on it: try once more here.
+                QgsMessageLog.logMessage(f"{title}: background load failed: {getattr(exception, 'detail', '') or exception}",
+                                         "SemanticGIS", Qgis.MessageLevel.Warning)
+                try:
+                    layer = build()
+                except RuntimeError as error:
+                    QgsMessageLog.logMessage(f"{title}: {getattr(error, 'detail', '') or error}", "SemanticGIS", Qgis.MessageLevel.Critical)
+                    self.iface.messageBar().pushMessage("SemanticGIS", f"{error} (details: View › Panels › Log Messages › SemanticGIS)",
+                                                        Qgis.MessageLevel.Critical)
+                    return
             place(layer)
             self.iface.messageBar().pushMessage("SemanticGIS", f"Added {title}", Qgis.MessageLevel.Success, 4)
 
