@@ -39,6 +39,17 @@ from .settings import DEFAULT_SITE_URL, SETTINGS_PREFIX, SettingsDialog
 ROLE = Qt.ItemDataRole.UserRole + 1
 
 
+def derivation_text(derivation):
+    """One line on how a derived dataset was made, for tooltips."""
+    source = derivation.get("from_title") or derivation.get("from", "?")
+    parts = [f"Derived from {source}: {derivation.get('criteria', '')}"]
+    if derivation.get("legal_basis"):
+        parts.append(f"legal basis: {derivation['legal_basis']}")
+    if derivation.get("as_of"):
+        parts.append(f"as of {derivation['as_of']}")
+    return "; ".join(parts)
+
+
 def plugin_version():
     """The plugin's own version, from metadata.txt."""
     try:
@@ -229,8 +240,52 @@ class SemanticGisDock(QDockWidget):
         preferred = self._preferred(dataset)
         tip = dataset.page + (f"\nDouble-click adds the preferred service ({preferred.type.upper()}"
                               f"{' · ' + preferred.portal['title'] if preferred.portal else ''})" if preferred else "")
+        if dataset.derivation:
+            tip += "\n" + derivation_text(dataset.derivation)
         item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), tip)
-        return item if self._service_items(item, dataset, leaf_id) else None
+        if not self._service_items(item, dataset, leaf_id):
+            return None
+        self._subset_items(item, dataset, leaf_id)
+        return item
+
+    def _subset_service(self, dataset):
+        """The service a subset is loaded from: a usable WFS, where the filter runs on the server."""
+        return next((s for s in sorted(dataset.services, key=lambda s: s.priority) if s.type == "wfs" and self._usable(s)), None)
+
+    def _subset_items(self, parent, dataset, leaf_id=None):
+        """The dataset's subsets: the same data filtered on one categorical attribute."""
+        if not dataset.subsets:
+            return
+        attribute = dataset.subsets["attribute"]
+        service = self._subset_service(dataset)
+        group = self._item(f"Subsets by {attribute}", ("subsets", dataset.id, leaf_id),
+                           f"The same dataset, filtered on {attribute}: not separate datasets.")
+        for index, subset in enumerate(dataset.subsets["values"]):
+            tip = f"{dataset.title} where {attribute} = '{subset['value']}'"
+            tip += "\nDouble-click adds it (WFS, filtered on the server)." if service else "\nNeeds a working WFS service."
+            child = self._item(subset["label"], ("subset", dataset.id, index, leaf_id), tip)
+            child.setEnabled(service is not None)
+            group.appendRow(child)
+        parent.appendRow(group)
+
+    def add_subset(self, leaf, dataset, index):
+        subset = dataset.subsets["values"][index]
+        service = self._subset_service(dataset)
+        if service is None or self._key_missing(service):
+            return
+        attribute = dataset.subsets["attribute"]
+        expression = f"\"{attribute}\" = '{subset['value'].replace(chr(39), chr(39) * 2)}'"
+        preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
+        only_in_view = self.only_in_view.isChecked()
+        name = f"{dataset.title} — {subset['label']}"
+
+        def place(layer):
+            layer.setSubsetString(expression)
+            layer.setName(name)
+            layer.setCustomProperty("semanticgis/subset", expression)
+            place_layer(layer, service, leaf, dataset, dataset.owner)
+
+        self._run_layer_task(name, lambda: build_layer(service, dataset, only_in_view, preferred), place)
 
     def _reference_items(self, parent, references):
         """Loadable geometries of reference units, one per scale."""
@@ -506,6 +561,9 @@ class SemanticGisDock(QDockWidget):
             if preferred is not None:
                 leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
                 self.add_layer(leaf, dataset, preferred)
+        elif data[0] == "subset":
+            leaf = self.catalogue.leaves.get(data[3]) if data[3] else None
+            self.add_subset(leaf, self.catalogue.datasets[data[1]], data[2])
         elif data[0] == "refgeom":
             source = self.catalogue.references[data[1]]
             self.add_reference_layer(source, source.geometries[data[2]])
@@ -630,6 +688,10 @@ class SemanticGisDock(QDockWidget):
         if kind == "leaf":
             leaf = c.leaves.get(data[1])
             return leaf.path if leaf else None
+        if kind in ("subsets", "subset"):
+            dataset = c.datasets.get(data[1])
+            realisation = c.realisations.get(dataset.realisation) if dataset and dataset.realisation else None
+            return (realisation or {}).get("path") or (dataset.page if dataset else None)
         if kind in ("dataset", "service"):
             dataset = c.datasets.get(data[1])
             return dataset.page if dataset else None

@@ -182,6 +182,9 @@ class Dataset:
     services: list
     owner: str | None = None
     attribution: Attribution | None = None
+    realisation: str | None = None     # the realisation note that names this dataset (sgis_id)
+    subsets: dict | None = None        # {"attribute", "values": [{"value", "label"}]}: the dataset, filtered
+    derivation: dict | None = None     # {"from", "criteria", "legal_basis", "as_of", "from_dataset", "from_title"}
 
     @property
     def preferred_service(self):
@@ -298,6 +301,9 @@ class Catalogue:
                 owner=d.get("owner"),
                 services=[make_service(s) for s in d.get("services", [])],
                 attribution=make_attribution(d.get("attribution")),
+                realisation=d.get("realisation"),
+                subsets=d.get("subsets"),
+                derivation=d.get("derivation"),
             )
 
         self.leaves = {}

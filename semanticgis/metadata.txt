@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.7.4
+version=0.7.5
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,7 +16,8 @@ icon=icon.svg
 tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=False
 deprecated=False
-changelog=0.7.4 Fix: in some QGIS installations Datafordeleren's WMTS basemaps (Skærmkort) failed with 'Cannot calculate extent' when built in the background; a layer that fails there is now tried once more on the main thread. Full errors go to Log Messages › SemanticGIS.
+changelog=0.7.5 Subsets: datasets whose realisation names a categorical attribute show 'Subsets by …' (e.g. Beskyttede naturtyper by habitat type); double-click loads the same WFS layer filtered on the server. Derived datasets say what they were derived from, how and as of when.
+    0.7.4 Fix: in some QGIS installations Datafordeleren's WMTS basemaps (Skærmkort) failed with 'Cannot calculate extent' when built in the background; a layer that fails there is now tried once more on the main thread. Full errors go to Log Messages › SemanticGIS.
     0.7.3 Fix: the plugin's entries (Copy attribution, Copy attributions of all layers) now appear on the Layers panel's right-click menu; QGIS's signal is contextMenuAboutToShow.
     0.7.2 Updates through QGIS: the plugin adds its update channel to QGIS's plugin repositories, so Plugins > Manage and Install Plugins offers new versions.
     0.7.1 The panel footer shows the plugin's name and version (SemanticGIS 0.7.1); the SPHERE index version is in its tooltip.
