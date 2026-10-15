@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS" version="0.7.4" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS" version="0.7.5" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.7.4</version>
-    <changelog>0.7.4 Fix: in some QGIS installations Datafordeleren's WMTS basemaps (Skærmkort) failed with 'Cannot calculate extent' when built in the background; a layer that fails there is now tried once more on the main thread. Full errors go to Log Messages › SemanticGIS.
+    <version>0.7.5</version>
+    <changelog>0.7.5 Subsets: datasets whose realisation names a categorical attribute show 'Subsets by …' (e.g. Beskyttede naturtyper by habitat type); double-click loads the same WFS layer filtered on the server. Derived datasets say what they were derived from, how and as of when.
+0.7.4 Fix: in some QGIS installations Datafordeleren's WMTS basemaps (Skærmkort) failed with 'Cannot calculate extent' when built in the background; a layer that fails there is now tried once more on the main thread. Full errors go to Log Messages › SemanticGIS.
 0.7.3 Fix: the plugin's entries (Copy attribution, Copy attributions of all layers) now appear on the Layers panel's right-click menu; QGIS's signal is contextMenuAboutToShow.
 0.7.2 Updates through QGIS: the plugin adds its update channel to QGIS's plugin repositories, so Plugins &gt; Manage and Install Plugins offers new versions.
 0.7.1 The panel footer shows the plugin's name and version (SemanticGIS 0.7.1); the SPHERE index version is in its tooltip.
@@ -24,13 +25,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.7.4.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.4/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.7.5.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.5/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.4/semanticgis.0.7.4.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.5/semanticgis.0.7.5.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-10-15T13:51:17Z</create_date>
-    <update_date>2026-10-15T13:51:17Z</update_date>
+    <create_date>2026-10-15T15:32:26Z</create_date>
+    <update_date>2026-10-15T15:32:26Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
