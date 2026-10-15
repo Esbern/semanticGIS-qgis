@@ -24,6 +24,7 @@ class SemanticGisPlugin:
         self.dock = None
         self.action = None
         self.network_fix = None
+        self.layer_menu_signal = None
 
     def initGui(self):
         self.network_fix = network.install()
@@ -42,11 +43,13 @@ class SemanticGisPlugin:
         self.iface.addWebToolBarIcon(self.action)
         self.iface.addPluginToWebMenu(MENU, self.action)
         # Right-click in the Layers panel: copy the attributions of the selected layers.
-        self.layer_menu_hooked = False
+        # QgsLayerTreeView announces its context menu with contextMenuAboutToShow (QGIS >= 3.32).
         view = self.iface.layerTreeView()
-        if view is not None and hasattr(view, "contextMenuAboutToBeShown"):   # QGIS >= 3.32
-            view.contextMenuAboutToBeShown.connect(self._layer_tree_menu)
-            self.layer_menu_hooked = True
+        self.layer_menu_signal = next(
+            (getattr(view, name) for name in ("contextMenuAboutToShow", "contextMenuAboutToBeShown")
+             if view is not None and hasattr(view, name)), None)
+        if self.layer_menu_signal is not None:
+            self.layer_menu_signal.connect(self._layer_tree_menu)
 
     def _project_read(self, *_):
         """A project with layers that need a key, opened while the encrypted keys are locked:
@@ -123,9 +126,9 @@ class SemanticGisPlugin:
             QgsProject.instance().readProject.disconnect(self._project_read)
         except (TypeError, RuntimeError):
             pass
-        if self.layer_menu_hooked:
+        if self.layer_menu_signal is not None:
             try:
-                self.iface.layerTreeView().contextMenuAboutToBeShown.disconnect(self._layer_tree_menu)
+                self.layer_menu_signal.disconnect(self._layer_tree_menu)
             except (TypeError, RuntimeError):
                 pass
         network.uninstall(self.network_fix)
