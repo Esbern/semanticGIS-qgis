@@ -13,6 +13,16 @@ ROOT_GROUP = "SemanticGIS"
 PROPERTY_PREFIX = "semanticgis/"
 
 
+class LayerError(RuntimeError):
+    """A layer that QGIS could not create; `detail` holds QGIS's full error text (for the log)."""
+
+    def __init__(self, layer, fallback):
+        from qgis.core import QgsErrorMessage
+
+        super().__init__(layer.error().summary() or fallback)
+        self.detail = layer.error().message(QgsErrorMessage.Format.Text)
+
+
 def with_params(url, **params):
     """Set query parameters on an endpoint URL (replacing any existing ones of the same name)."""
     params = {k: v for k, v in params.items() if v}
@@ -135,7 +145,7 @@ def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS
     name = f"{dataset.title} — {service.label}" if service.label != dataset.title else dataset.title
     layer = QgsVectorLayer(uri, name, provider) if provider in ("WFS", "ogr") else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
-        raise RuntimeError(layer.error().summary() or f"The {service.type.upper()} layer could not be loaded")
+        raise LayerError(layer, f"The {service.type.upper()} layer could not be loaded")
     return layer
 
 
@@ -186,7 +196,7 @@ def build_basemap_layer(basemap, service, preferred_crs=PREFERRED_CRS):
     name = basemap.title + (f" ({basemap.period})" if basemap.period and basemap.period not in basemap.title else "")
     layer = QgsVectorLayer(uri, name, provider) if provider in ("WFS", "ogr") else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
-        raise RuntimeError(layer.error().summary() or f"The basemap {basemap.title} could not be loaded")
+        raise LayerError(layer, f"The basemap {basemap.title} could not be loaded")
     return layer
 
 
@@ -219,7 +229,7 @@ def build_reference_layer(source, geometry):
     path = "/vsicurl/" + url if url.startswith(("http://", "https://")) else url
     layer = QgsVectorLayer(path, f"{source.unit} {geometry.scale}", "ogr")
     if not layer.isValid():
-        raise RuntimeError(layer.error().summary() or f"Could not open {url}")
+        raise LayerError(layer, f"Could not open {url}")
     return layer
 
 
