@@ -106,6 +106,7 @@ class Candidate:
     unmatched: list = field(default_factory=list)
     levels: list = field(default_factory=list)   # levels of the matched units, for display
     mixed: list = field(default_factory=list)    # [(label, matched)] when the column mixes several levels
+    matched_values: frozenset = field(default_factory=frozenset, repr=False)   # the column values it matched
 
     @property
     def rate(self):
@@ -158,6 +159,7 @@ def detect(columns, indexes, min_rate=MIN_RATE):
                         total=len(values),
                         unmatched=[str(v) for v, unit in hits if unit is None][:8],
                         levels=sorted({u.level for u in matched if u.level is not None}),
+                        matched_values=frozenset(str(v) for v, unit in hits if unit is not None),
                     )
                 )
     good = [c for c in candidates if c.rate >= min_rate]
@@ -168,6 +170,11 @@ def detect(columns, indexes, min_rate=MIN_RATE):
     for c in good:
         best[id(c.index)] = max(best.get(id(c.index), 0.0), c.rate)
     good = [c for c in good if c.mixed or c.rate >= best[id(c.index)] - NOISE_GAP]
+    # A candidate whose matched values are all matched by a better one in the same column (another
+    # reference) adds nothing: municipality codes 101-400 are also rode numbers, and vice versa.
+    good = [c for c in good if not any(
+        d is not c and d.field == c.field and d.index is not c.index and d.rate > c.rate
+        and c.matched_values <= d.matched_values for d in good)]
     return sorted(good, key=lambda c: (bool(c.mixed) and c.rate < min_rate, -c.rate, MODE_ORDER[c.mode], -c.matched))
 
 
@@ -186,7 +193,13 @@ def _mixed_levels(candidates, good):
             key = id(c.index)
             if key not in best or c.matched > best[key].matched:
                 best[key] = c
-        parts = [c for c in best.values() if c.matched >= 2]
+        # A real mixture has separate codes per level (districts 1001-1010, committees 2001-2012, …).
+        # Values claimed by two references are a coincidence of numbering (rode 101 and municipality
+        # 101), not a mixture: keep only references whose matches are disjoint from larger ones.
+        parts = []
+        for c in sorted((c for c in best.values() if c.matched >= 2), key=lambda c: -c.matched):
+            if all(not (c.matched_values & kept.matched_values) for kept in parts):
+                parts.append(c)
         if len(parts) < 2 or sum(c.matched for c in parts) < MIXED_COVER * parts[0].total:
             continue
         mixed = sorted(((getattr(c.source, "unit", c.source.label), c.matched) for c in parts), key=lambda p: -p[1])
