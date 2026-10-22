@@ -153,6 +153,31 @@ def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS
     return layer
 
 
+def crs_definition(layer):
+    """The layer's CRS as plain text (authority id and WKT), to survive a change of thread."""
+    crs = layer.crs()
+    return crs.authid(), crs.toWkt()
+
+
+def rebind_crs(layer, definition):
+    """Give a layer built in a background thread a CRS object made on the current (main) thread.
+
+    QGIS ties a CRS object's PROJ data to the thread that created it; when QGIS retires that
+    worker thread (after ~30 s idle) the layer's CRS loses its definition: saving then writes
+    'Undefined SRS', GeoParquet export crashes and new transformations fail, so layers are drawn
+    unprojected. A CRS created from the saved text on the main thread does not depend on it."""
+    from qgis.core import QgsCoordinateReferenceSystem, QgsCoordinateTransform
+
+    # QGIS also put the thread-bound CRS into its global cache: asking for "EPSG:3035" again would
+    # return the same object. Clear the caches so the CRS (and transforms) are built on this thread.
+    QgsCoordinateReferenceSystem.invalidateCache()
+    QgsCoordinateTransform.invalidateCache()
+    authid, wkt = definition
+    crs = QgsCoordinateReferenceSystem(authid) if authid else QgsCoordinateReferenceSystem.fromWkt(wkt)
+    if crs.isValid():
+        layer.setCrs(crs)
+
+
 def ensure_project_crs(project, layer):
     """A project without a coordinate system draws every layer in its own raw coordinates, so
     layers in different CRSs (EPSG:25832 and EPSG:3035) end up kilometres apart. Give such a

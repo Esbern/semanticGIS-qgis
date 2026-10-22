@@ -29,6 +29,8 @@ from .network import get as network_get
 from .join_dialog import JoinDialog
 from .layers import (
     PREFERRED_CRS,
+    crs_definition,
+    rebind_crs,
     build_basemap_layer,
     place_basemap_layer,
     build_layer,
@@ -693,10 +695,15 @@ class SemanticGisDock(QDockWidget):
 
         def task_function(task):
             layer = build()
+            definition = crs_definition(layer)   # as text: the CRS object itself is tied to this thread
             layer.moveToThread(main_thread)
-            return layer
+            return layer, definition
 
-        def on_finished(exception, layer=None):
+        def on_finished(exception, result=None):
+            layer = None
+            if exception is None:
+                layer, definition = result
+                rebind_crs(layer, definition)
             if exception is not None:
                 # Some QGIS installations cannot create certain layers (seen with Datafordeleren's WMTS)
                 # outside the main thread although the same layer is valid on it: try once more here.
