@@ -153,6 +153,14 @@ def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS
     return layer
 
 
+def ensure_project_crs(project, layer):
+    """A project without a coordinate system draws every layer in its own raw coordinates, so
+    layers in different CRSs (EPSG:25832 and EPSG:3035) end up kilometres apart. Give such a
+    project the CRS of the layer being added, as QGIS does for the first layer of a new project."""
+    if not project.crs().isValid() and layer.crs().isValid():
+        project.setCrs(layer.crs())
+
+
 def _add_to_group(layer, group_name):
     from qgis.core import QgsProject
 
@@ -160,6 +168,7 @@ def _add_to_group(layer, group_name):
     root = project.layerTreeRoot()
     group = root.findGroup(ROOT_GROUP) or root.insertGroup(0, ROOT_GROUP)
     sub = group.findGroup(group_name) or group.addGroup(group_name)
+    ensure_project_crs(project, layer)
     project.addMapLayer(layer, False)
     sub.insertLayer(0, layer)
     return layer
@@ -217,6 +226,7 @@ def place_basemap_layer(layer, basemap, service):
     project = QgsProject.instance()
     root = project.layerTreeRoot()
     group = root.findGroup(BASEMAP_GROUP) or root.addGroup(BASEMAP_GROUP)   # addGroup appends at the bottom
+    ensure_project_crs(project, layer)
     project.addMapLayer(layer, False)
     group.insertLayer(0, layer)   # the basemap just added is the visible one
     return layer
