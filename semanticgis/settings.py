@@ -4,6 +4,7 @@ from qgis.core import QgsSettings
 from qgis.PyQt.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QMessageBox
 
 from .access import KEYS
+from .certificates import ConnectionDialog
 from .catalogue import DEFAULT_BASE_URL
 
 SETTINGS_PREFIX = "semanticgis/"
@@ -54,6 +55,10 @@ class SettingsDialog(QDialog):
         form.addRow(note)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        test = buttons.addButton("Test connections…", QDialogButtonBox.ButtonRole.HelpRole)
+        test.setToolTip("Check the secure connections to Datafordeleren, Dataforsyningen and semanticgis.org "
+                        "and see what to do about SSL errors")
+        test.clicked.connect(lambda: ConnectionDialog.show(self))
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)

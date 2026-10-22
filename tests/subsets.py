@@ -72,6 +72,7 @@ while time.time() < deadline and not any(m.startswith(("Added", "Cannot", "Provi
 layer = next((l for l in QgsProject.instance().mapLayers().values() if l.name().endswith("Hede (heath)")), None)
 expect("layer added", layer.name() if layer else iface.bar.messages[-1:], "Beskyttede naturtyper — Hede (heath)")
 expect("filter", layer.subsetString() if layer else None, "\"Natyp_navn\" = 'Hede'")
+expect("sent as POST (Miljøportal blocks filters in URLs)", "httpMethod='post'" in layer.source() if layer else None, True)
 request = QgsFeatureRequest().setFilterRect(QgsRectangle(440000, 6200000, 600000, 6400000)).setLimit(50)   # Jutland, EPSG:25832
 types = {f["Natyp_navn"] for f in layer.getFeatures(request)} if layer else set()
 expect("only heath comes back", types, {"Hede"})
