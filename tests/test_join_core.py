@@ -55,6 +55,39 @@ def test_detect_ignores_weak_matches():
     assert detect({"x": ["101", "a", "b", "c", "d"]}, [lau()]) == []
 
 
+
+
+def kk():
+    """Københavns Kommune's levels: codes are disjoint across levels (as in Statistikbanken)."""
+    bydel = KeyIndex(Source("Bydel"), [RefUnit(str(1000 + i), f"Bydel {i}") for i in range(1, 11)])
+    udvalg = KeyIndex(Source("Lokaludvalg"), [RefUnit(str(2000 + i), f"Udvalg {i}") for i in range(1, 13)])
+    kvarter = KeyIndex(Source("Kvarter"), [RefUnit(str(20100 + i), f"Kvarter {i}") for i in range(1, 68)])
+    rode = KeyIndex(Source("Rode"), [RefUnit(f"{i:03d}", f"Rode {i}") for i in range(1, 401)])
+    return [bydel, udvalg, kvarter, rode]
+
+
+def test_mixed_levels_are_all_offered():
+    # KKBEF8: the city total, 10 districts, 12 committees and 67 quarters in one column
+    codes = ["1000"] + [str(1000 + i) for i in range(1, 11)] + [str(2000 + i) for i in range(1, 13)] + [str(20100 + i) for i in range(1, 68)]
+    found = {c.source.label: c for c in detect({"kode": codes}, kk())}
+    assert set(found) == {"Kvarter", "Lokaludvalg", "Bydel"}
+    assert (found["Bydel"].matched, found["Lokaludvalg"].matched, found["Kvarter"].matched) == (10, 12, 67)
+    assert "mixes levels" in found["Bydel"].describe() and "only the Bydel rows" in found["Bydel"].describe()
+
+
+def test_count_columns_are_not_offered_as_codes():
+    # KKBOL4: rode codes 001-400 plus counts between 0 and 400 in the value columns
+    codes = ["1000"] + [f"{i:03d}" for i in range(1, 401)]
+    counts = [str(v) for v in (0, 12, 38, 207, 119, 55, 0, 76871, 401, 14, 87)]
+    found = detect({"code": codes, "Ejerbolig": counts}, kk())
+    assert [(c.field, c.source.label) for c in found] == [("code", "Rode")]
+
+
+def test_single_level_tables_are_unchanged():
+    found = detect({"code": [f"{i:03d}" for i in range(1, 401)]}, kk())
+    assert len(found) == 1 and not found[0].mixed and found[0].matched == 400
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
