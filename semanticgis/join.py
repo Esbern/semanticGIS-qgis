@@ -15,6 +15,8 @@ MIN_RATE = 0.5          # a candidate must match at least half of a column's dis
 NAME_SUFFIXES = (" kommune", " municipality", " kommun", " kommune.")
 NAME_PREFIXES = ("region ",)   # Danmarks Statistik "Region Hovedstaden" = NUTS "Hovedstaden"
 MODE_ORDER = {"id": 0, "national": 1, "name": 2}  # prefer IDs over names on equal rates
+MIXED_COVER = 0.8       # levels that together match this share of a column: the column mixes levels
+NOISE_GAP = 0.15        # per reference, a column matching this much worse than the best column is noise
 
 
 def norm_id(value):
@@ -103,6 +105,7 @@ class Candidate:
     total: int
     unmatched: list = field(default_factory=list)
     levels: list = field(default_factory=list)   # levels of the matched units, for display
+    mixed: list = field(default_factory=list)    # [(label, matched)] when the column mixes several levels
 
     @property
     def rate(self):
@@ -116,7 +119,11 @@ class Candidate:
         how = {"id": "by ID", "national": f"by national code ({self.index.country})", "name": "by name"}[self.mode]
         levels = self.levels or ([self.level] if self.level is not None else [])
         level = f", level {'/'.join(map(str, levels))}" if levels else ""
-        return f"{self.field} → {self.source.label} {how}{level}: {self.matched}/{self.total} ({self.rate:.0%})"
+        text = f"{self.field} → {self.source.label} {how}{level}: {self.matched}/{self.total} ({self.rate:.0%})"
+        if self.mixed:
+            parts = ", ".join(f"{label} {count}" for label, count in self.mixed)
+            text += f" — the column mixes levels ({parts}); only the {getattr(self.source, 'unit', self.source.label)} rows are joined"
+        return text
 
     def lookup(self, value):
         return self.index.lookup(value, self.mode, self.level)
@@ -154,4 +161,37 @@ def detect(columns, indexes, min_rate=MIN_RATE):
                     )
                 )
     good = [c for c in candidates if c.rate >= min_rate]
-    return sorted(good, key=lambda c: (-c.rate, MODE_ORDER[c.mode], -c.matched))
+    good += _mixed_levels(candidates, good)
+    # Per reference, drop columns that match clearly worse than its best column: counts such as
+    # "0, 12, 207" can look like unit numbers.
+    best = {}
+    for c in good:
+        best[id(c.index)] = max(best.get(id(c.index), 0.0), c.rate)
+    good = [c for c in good if c.mixed or c.rate >= best[id(c.index)] - NOISE_GAP]
+    return sorted(good, key=lambda c: (bool(c.mixed) and c.rate < min_rate, -c.rate, MODE_ORDER[c.mode], -c.matched))
+
+
+def _mixed_levels(candidates, good):
+    """Columns that mix levels (a statistics table with totals per district, committee and quarter in
+    one column): when the ID matches of several references are disjoint and together cover most of
+    the column, each reference is offered, even one that matches only a few rows."""
+    extra = []
+    by_field = defaultdict(list)
+    for c in candidates:
+        if c.mode in ("id", "national"):
+            by_field[c.field].append(c)
+    for field_name, group in by_field.items():
+        best = {}
+        for c in group:   # one candidate per reference: its best ID match
+            key = id(c.index)
+            if key not in best or c.matched > best[key].matched:
+                best[key] = c
+        parts = [c for c in best.values() if c.matched >= 2]
+        if len(parts) < 2 or sum(c.matched for c in parts) < MIXED_COVER * parts[0].total:
+            continue
+        mixed = sorted(((getattr(c.source, "unit", c.source.label), c.matched) for c in parts), key=lambda p: -p[1])
+        for c in parts:
+            c.mixed = mixed
+            if c not in good:
+                extra.append(c)
+    return extra

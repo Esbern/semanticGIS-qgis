@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.8.0-dev8
+version=0.8.0-dev9
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,13 +16,15 @@ icon=icon.svg
 tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=False
 deprecated=False
-changelog=0.8.0-dev8 Research-group servers no longer hold up the panel: the public catalogue shows at once, each server loads on its own (15 s limit) and its datasets appear when it answers; unreachable servers are named in the status line; open folders stay open.
+changelog=0.8.0-dev9 Includes 0.7.7: mixed-level statistics columns offer every level; count columns are not offered as codes.
+    0.8.0-dev8 Research-group servers no longer hold up the panel: the public catalogue shows at once, each server loads on its own (15 s limit) and its datasets appear when it answers; unreachable servers are named in the status line; open folders stay open.
     0.8.0-dev7 Includes 0.7.6 (root certificates for SSL errors, Test connections, subsets via POST); Test connections also checks the extension servers.
     0.8.0-dev6 Includes 0.7.5: subsets ('Subsets by …', filtered WFS) and derivations in the panel.
     0.8.0-dev5 Includes 0.7.4: a layer whose background build fails (Skærmkort WMTS, 'Cannot calculate extent') is tried again on the main thread.
     0.8.0-dev4 Fix: the SemanticGIS submenu (Link to leaf, Publish, Save metadata) and Copy attribution now appear on the Layers panel's right-click menu (from 0.7.3).
     0.8.0-dev3 Prototype: write back to research group projects. Right-click a layer › SemanticGIS: Link to leaf…, Publish to research group… (COG/GeoParquet to the package registry + STAC, one commit), Edit metadata… and Save metadata to GitLab (refused, not overwritten, after a colleague's change).
     0.8.0-dev2 Prototype: private extensions from GitLab (Settings → Extension servers); their datasets appear under the leaves they name and in an Extensions branch. Includes 0.7.2.
+    0.7.7 Join: a statistics table that mixes levels in one column (e.g. Københavns Kommune's KKBEF8: districts, local committees and quarters) offers every level, each joining its own rows; number columns whose values happen to look like unit codes are no longer offered.
     0.7.6 SSL errors with Datafordeleren/Dataforsyningen: the plugin adds the root certificates they need (Sectigo R46, ISRG Root X1/X2) to QGIS's authorities when QGIS does not trust them; Settings › Test connections… says what is wrong (missing root, HTTPS inspection by antivirus, wrong clock, no connection) with a report to copy. Fix: subset layers send their filter as POST (Danmarks Miljøportal now blocks filters in URLs).
     0.7.5 Subsets: datasets whose realisation names a categorical attribute show 'Subsets by …' (e.g. Beskyttede naturtyper by habitat type); double-click loads the same WFS layer filtered on the server. Derived datasets say what they were derived from, how and as of when.
     0.7.4 Fix: in some QGIS installations Datafordeleren's WMTS basemaps (Skærmkort) failed with 'Cannot calculate extent' when built in the background; a layer that fails there is now tried once more on the main thread. Full errors go to Log Messages › SemanticGIS.
