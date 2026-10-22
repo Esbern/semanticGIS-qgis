@@ -6,9 +6,9 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import QgsProject
+from qgis.core import Qgis, QgsMessageLog, QgsProject
 
-from . import network, publish, repository
+from . import certificates, network, publish, repository
 from .access import KEYS
 from .dock import extension_servers
 from .extensions import server_profile
@@ -28,6 +28,10 @@ class SemanticGisPlugin:
 
     def initGui(self):
         self.network_fix = network.install()
+        try:   # roots Datafordeleren and Dataforsyningen need, if QGIS does not trust them (SSL errors)
+            certificates.ensure_roots()
+        except Exception as error:   # never stop the plugin from loading
+            QgsMessageLog.logMessage(f"Could not check root certificates: {error}", "SemanticGIS", Qgis.MessageLevel.Warning)
         repository.register(plugin_version())   # QGIS then offers updates of the plugin
         # Keys are added to requests as they are sent; an encrypted store stays locked until needed.
         KEYS.load(prompt=False)

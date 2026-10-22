@@ -83,6 +83,12 @@ Private datasets of a research group live in a GitLab project (e.g. on a univers
 | Your keys | — | One field per access profile in the catalogue: Datafordeleren API key, Dataforsyningen token, CARTO basemaps API key. See [Access Profiles](https://semanticgis.org/Data/Access-Profiles/) for where to get each |
 | Keep the keys encrypted | off | Store the keys in the QGIS authentication database (master password) instead of the QGIS settings file |
 
+### SSL errors ("The root certificate of the certificate chain is self-signed, and untrusted")
+
+Datafordeleren's certificates chain to *Sectigo Public Server Authentication Root R46* and Dataforsyningen's to *ISRG Root X2*, both fairly new roots. Windows fetches such roots only when a program asks Windows to check a certificate (browsers do, QGIS does not), so on some computers QGIS does not trust them. The plugin ships these roots (checked against their published SHA-256 fingerprints) and, when QGIS starts, adds those QGIS does not trust to QGIS's own authorities (*Settings › Options › Authentication › Certificate Manager › Authorities*). No dialog, no master password, and nothing else changes.
+
+*Settings › Test connections…* checks the connections to Datafordeleren, Dataforsyningen and semanticgis.org the way QGIS makes them and says what is wrong: a root QGIS does not trust (*Add root certificates*), HTTPS inspection by antivirus or a network (the certificate comes from another issuer, which the report names), a wrong clock, or no connection. *Copy report* gives a text to send to a teacher.
+
 ### Keys
 
 The catalogue never contains keys. Each *access profile* in it names the hosts that need a key and the query parameter the key travels as (`apikey`, `token`, `key`). The plugin adds your key to every request to those hosts **as the request is sent**: the key is not written into layer sources, so a project you save or share contains none, and whoever opens it uses their own key (they need the plugin installed). Layers added by plugin versions before 0.7 still have the key in their source.

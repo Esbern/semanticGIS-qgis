@@ -311,7 +311,8 @@ class SemanticGisDock(QDockWidget):
             layer.setCustomProperty("semanticgis/subset", expression)
             place_layer(layer, service, leaf, dataset, dataset.owner)
 
-        self._run_layer_task(name, lambda: build_layer(service, dataset, only_in_view, preferred), place)
+        # filtered=True: the filter goes to the server in a POST body (see layers.wfs_uri)
+        self._run_layer_task(name, lambda: build_layer(service, dataset, only_in_view, preferred, filtered=True), place)
 
     def _reference_items(self, parent, references):
         """Loadable geometries of reference units, one per scale."""

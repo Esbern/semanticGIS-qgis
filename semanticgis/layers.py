@@ -61,7 +61,9 @@ def tile_matrix_set_crs(name):
     return PREFERRED_CRS
 
 
-def wfs_uri(url, layer, only_in_view=True):
+def wfs_uri(url, layer, only_in_view=True, post=False):
+    """`post` sends GetFeature as POST, with any filter in the body: some servers sit behind a firewall
+    that blocks filters in the URL (Danmarks Miljøportal answers 403 "Request Blocked")."""
     params = {
         "url": url,
         "typename": layer,
@@ -69,6 +71,8 @@ def wfs_uri(url, layer, only_in_view=True):
         "pagingEnabled": "true",
         "restrictToRequestBBOX": "1" if only_in_view else "0",
     }
+    if post:
+        params["httpMethod"] = "post"
     return " ".join(f"{k}='{v}'" for k, v in params.items())
 
 
@@ -103,7 +107,7 @@ def xyz_uri(url, zmin=0, zmax=19):
     return f"type=xyz&url={quote(url, safe='')}&zmin={zmin or 0}&zmax={zmax or 19}"
 
 
-def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS):
+def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS, filtered=False):
     """(uri, provider) for a loadable service. The URI never contains a key: keys are added to
     each request as it is sent (access.py), so saved projects carry none."""
     url = service.endpoint
@@ -125,7 +129,7 @@ def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS):
         params += [("format", "GTiff"), ("identifier", service.layer_name), ("url", url)]
         return urlencode(params), "wcs"
     if service.type == "wfs":
-        return wfs_uri(url, service.layer_name, only_in_view), "WFS"
+        return wfs_uri(url, service.layer_name, only_in_view, post=filtered), "WFS"
     if service.type == "wms":
         return wms_uri(url, service.layer_name, pick_crs(check.get("crs"), preferred_crs)), "wms"
     if service.type == "wmts":
@@ -133,7 +137,7 @@ def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS):
     raise ValueError(f"Service type {service.type} cannot be loaded as a layer")
 
 
-def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS):
+def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS, filtered=False):
     """Create (but do not add) the layer. Talks to the server, so it may be slow; safe to run in a
     QgsTask as long as the caller moves the layer to the main thread before adding it.
 
@@ -141,7 +145,7 @@ def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS
     """
     from qgis.core import QgsRasterLayer, QgsVectorLayer
 
-    uri, provider = layer_source(service, only_in_view, preferred_crs)
+    uri, provider = layer_source(service, only_in_view, preferred_crs, filtered)
     name = f"{dataset.title} — {service.label}" if service.label != dataset.title else dataset.title
     layer = QgsVectorLayer(uri, name, provider) if provider in ("WFS", "ogr") else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
