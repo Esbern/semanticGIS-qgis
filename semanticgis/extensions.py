@@ -173,8 +173,9 @@ def load_extensions(servers, get, leaves):
 
 
 def merge(catalogue, extensions):
-    """Add the extensions' datasets to the catalogue and to the leaves they realise."""
-    catalogue.extensions = extensions
+    """Add the extensions' datasets to the catalogue and to the leaves they realise. Can be called
+    once per server as each answers: the extensions are added to those already merged."""
+    catalogue.extensions = list(getattr(catalogue, "extensions", []) or []) + list(extensions)
     for extension in extensions:
         for dataset in extension.datasets:
             catalogue.datasets[dataset.id] = dataset

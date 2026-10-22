@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.8.0-dev7
+version=0.8.0-dev8
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,7 +16,8 @@ icon=icon.svg
 tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=False
 deprecated=False
-changelog=0.8.0-dev7 Includes 0.7.6 (root certificates for SSL errors, Test connections, subsets via POST); Test connections also checks the extension servers.
+changelog=0.8.0-dev8 Research-group servers no longer hold up the panel: the public catalogue shows at once, each server loads on its own (15 s limit) and its datasets appear when it answers; unreachable servers are named in the status line; open folders stay open.
+    0.8.0-dev7 Includes 0.7.6 (root certificates for SSL errors, Test connections, subsets via POST); Test connections also checks the extension servers.
     0.8.0-dev6 Includes 0.7.5: subsets ('Subsets by …', filtered WFS) and derivations in the panel.
     0.8.0-dev5 Includes 0.7.4: a layer whose background build fails (Skærmkort WMTS, 'Cannot calculate extent') is tried again on the main thread.
     0.8.0-dev4 Fix: the SemanticGIS submenu (Link to leaf, Publish, Save metadata) and Copy attribution now appear on the Layers panel's right-click menu (from 0.7.3).

@@ -97,7 +97,7 @@ class SemanticGisDock(QDockWidget):
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search leaves by title or question…")
         self.search.setClearButtonEnabled(True)
-        self.search.textChanged.connect(self.rebuild)
+        self.search.textChanged.connect(lambda _text: self.rebuild())
         top.addWidget(self.search)
         refresh = QToolButton()
         refresh.setIcon(QgsApplication.getThemeIcon("mActionRefresh.svg"))
@@ -113,7 +113,7 @@ class SemanticGisDock(QDockWidget):
 
         self.verified_only = QCheckBox("Verified services only")
         self.verified_only.setChecked(True)
-        self.verified_only.toggled.connect(self.rebuild)
+        self.verified_only.toggled.connect(lambda _checked: self.rebuild())
         self.only_in_view = QCheckBox("WFS: fetch only features in the map view")
         self.only_in_view.setChecked(True)
         layout.addWidget(self.verified_only)
@@ -149,6 +149,8 @@ class SemanticGisDock(QDockWidget):
     # -- catalogue -----------------------------------------------------------------
 
     def reload(self):
+        """Load the public catalogue and show it; research-group servers follow, each on its own,
+        so a slow or unreachable server never holds up the rest."""
         source = settings_value("catalogue_source", DEFAULT_BASE_URL) or DEFAULT_BASE_URL
         cache_dir = os.path.join(QgsApplication.qgisSettingsDirPath(), "semanticgis", "cache")
         self.status.setText(f"Loading catalogue from {source}…")
@@ -156,42 +158,87 @@ class SemanticGisDock(QDockWidget):
         KEYS.set_extra_profiles({p.id: p for p in map(ext.server_profile, servers)})
         if servers and not KEYS.loaded:
             KEYS.load(prompt=True)   # extensions are read with the user's GitLab token
+        self._generation = getattr(self, "_generation", 0) + 1
+        generation = self._generation
 
         def task_function(task):
-            catalogue, from_cache = load_catalogue(source, cache_dir)
-            found, problems = ext.load_extensions(servers, network_get, catalogue.leaves) if servers else ([], [])
-            ext.merge(catalogue, found)
-            catalogue.extension_problems = problems + [p for e in found for p in e.problems]
-            return catalogue, from_cache
+            return load_catalogue(source, cache_dir)
 
         def on_finished(exception, result=None):
+            if generation != self._generation:
+                return   # a newer reload has started
             if exception is not None:
                 message = str(exception) if isinstance(exception, CatalogueError) else repr(exception)
                 self.status.setText(message)
                 self.iface.messageBar().pushMessage("SemanticGIS", message, Qgis.MessageLevel.Critical)
                 return
-            self.catalogue, from_cache = result
+            self.catalogue, self._from_cache = result
+            self._source = source
             KEYS.set_profiles(self.catalogue.access_profiles)
             self.join_button.setEnabled(bool(self.catalogue.references))
-            checked = self.catalogue.services_checked or "never"
-            services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
-            extensions = getattr(self.catalogue, "extensions", [])
-            if extensions:
-                services += f" · {len(extensions)} extension(s)"
-            problems = getattr(self.catalogue, "extension_problems", [])
-            if problems:
-                self.iface.messageBar().pushMessage("SemanticGIS", "Extensions: " + "; ".join(problems[:3]),
-                                                    Qgis.MessageLevel.Warning, 10)
-            self.status.setText(
-                f"SemanticGIS {plugin_version()} · {len(self.catalogue.leaves)} leaves · "
-                f"{services}" + (" · offline copy" if from_cache else "")
-            )
-            self.status.setToolTip(f"SemanticGIS plugin {plugin_version()} · SPHERE index v{self.catalogue.version} "
-                                   f"· catalogue from {source}")
+            self._extension_state = {server: "loading" for server in servers}
+            self._update_status()
             self.rebuild()
+            for server in servers:
+                self._load_extension_server(server, generation)
 
         self._task = QgsTask.fromFunction("Load SemanticGIS catalogue", task_function, on_finished=on_finished)
         QgsApplication.taskManager().addTask(self._task)
+
+    EXTENSION_TIMEOUT_MS = 15000
+
+    def _load_extension_server(self, server, generation):
+        """Read one research-group server in the background and add its datasets when it answers."""
+        catalogue = self.catalogue
+        get = lambda url: network_get(url, self.EXTENSION_TIMEOUT_MS)
+
+        def task_function(task):
+            return ext.load_extensions([server], get, catalogue.leaves)
+
+        def on_finished(exception, result=None):
+            if generation != self._generation or catalogue is not self.catalogue:
+                return   # the catalogue was reloaded meanwhile: this answer is stale
+            if exception is not None:
+                found, problems = [], [f"{server}: {exception}"]
+            else:
+                found, problems = result
+            problems = problems + [p for e in found for p in e.problems]
+            ext.merge(catalogue, found)
+            self._extension_state[server] = ("ok", len(found)) if not problems or found else ("failed", problems[0])
+            if problems:
+                self.iface.messageBar().pushMessage("SemanticGIS", f"Research group server {server}: " + "; ".join(problems[:2]),
+                                                    Qgis.MessageLevel.Warning, 10)
+            self._update_status()
+            if found:
+                self.rebuild(keep_view=True)
+
+        task = QgsTask.fromFunction(f"Load SemanticGIS extensions from {server}", task_function, on_finished=on_finished)
+        self._extension_tasks = getattr(self, "_extension_tasks", set())
+        self._extension_tasks.add(task)
+        task.taskCompleted.connect(lambda: self._extension_tasks.discard(task))
+        task.taskTerminated.connect(lambda: self._extension_tasks.discard(task))
+        QgsApplication.taskManager().addTask(task)
+
+    def _update_status(self):
+        c = self.catalogue
+        checked = c.services_checked or "never"
+        parts = [f"SemanticGIS {plugin_version()}", f"{len(c.leaves)} leaves",
+                 f"services checked {checked}" if c.has_services else "no services published yet"]
+        states = getattr(self, "_extension_state", {})
+        loaded = len(getattr(c, "extensions", []) or [])
+        if loaded:
+            parts.append(f"{loaded} extension(s)")
+        waiting = [server for server, state in states.items() if state == "loading"]
+        failed = [server for server, state in states.items() if isinstance(state, tuple) and state[0] == "failed"]
+        if waiting:
+            parts.append("waiting for " + ", ".join(waiting))
+        if failed:
+            parts.append("not reachable: " + ", ".join(failed))
+        if getattr(self, "_from_cache", False):
+            parts.append("offline copy")
+        self.status.setText(" · ".join(parts))
+        self.status.setToolTip(f"SemanticGIS plugin {plugin_version()} · SPHERE index v{c.version} "
+                               f"· catalogue from {getattr(self, '_source', '')}")
 
     def open_join(self):
         if self.catalogue is not None:
@@ -518,7 +565,37 @@ class SemanticGisDock(QDockWidget):
             lambda layer: place_basemap_layer(layer, basemap, service),
         )
 
-    def rebuild(self):
+    def _open_keys(self, parent=None):
+        """The nodes the user has opened, by their data (stable across rebuilds)."""
+        keys = set()
+        parent = parent or self.model.invisibleRootItem()
+        for row in range(parent.rowCount()):
+            item = parent.child(row)
+            if self.tree.isExpanded(item.index()):
+                keys.add(repr(item.data(ROLE)))
+                keys |= self._open_keys(item)
+        return keys
+
+    def _reopen(self, keys, parent=None):
+        parent = parent or self.model.invisibleRootItem()
+        for row in range(parent.rowCount()):
+            item = parent.child(row)
+            if repr(item.data(ROLE)) in keys:
+                self.tree.setExpanded(item.index(), True)
+                self._reopen(keys, item)
+
+    def rebuild(self, keep_view=False):
+        """Rebuild the tree; keep_view keeps the opened folders and the scroll position
+        (used when a research-group server answers while the user is browsing)."""
+        if keep_view:
+            keys, scroll = self._open_keys(), self.tree.verticalScrollBar().value()
+            self._rebuild()
+            self._reopen(keys)
+            self.tree.verticalScrollBar().setValue(scroll)
+        else:
+            self._rebuild()
+
+    def _rebuild(self):
         self.model.clear()
         if not self.catalogue:
             return
