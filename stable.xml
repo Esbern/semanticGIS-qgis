@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS" version="0.7.8" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS" version="0.7.9" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.7.8</version>
-    <changelog>0.7.8 Join: levels count as mixed only when their codes are separate, so rode codes that equal municipality codes (101, 147 …) no longer make a rode table look mixed. Københavns Kommune's bydele, lokaludvalg, kvarterer and roder are in the catalogue as reference units.
+    <version>0.7.9</version>
+    <changelog>0.7.9 Join: a reference is not offered when all its matches are also matched by a better one in the same column (municipality codes 101–400 are also rode numbers).
+0.7.8 Join: levels count as mixed only when their codes are separate, so rode codes that equal municipality codes (101, 147 …) no longer make a rode table look mixed. Københavns Kommune's bydele, lokaludvalg, kvarterer and roder are in the catalogue as reference units.
 0.7.7 Join: a statistics table that mixes levels in one column (e.g. Københavns Kommune's KKBEF8: districts, local committees and quarters) offers every level, each joining its own rows; number columns whose values happen to look like unit codes are no longer offered.
 0.7.6 SSL errors with Datafordeleren/Dataforsyningen: the plugin adds the root certificates they need (Sectigo R46, ISRG Root X1/X2) to QGIS's authorities when QGIS does not trust them; Settings › Test connections… says what is wrong (missing root, HTTPS inspection by antivirus, wrong clock, no connection) with a report to copy. Fix: subset layers send their filter as POST (Danmarks Miljøportal now blocks filters in URLs).
 0.7.5 Subsets: datasets whose realisation names a categorical attribute show 'Subsets by …' (e.g. Beskyttede naturtyper by habitat type); double-click loads the same WFS layer filtered on the server. Derived datasets say what they were derived from, how and as of when.
@@ -28,13 +29,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.7.8.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.8/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.7.9.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.9/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.8/semanticgis.0.7.8.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.9/semanticgis.0.7.9.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-10-22T16:06:31Z</create_date>
-    <update_date>2026-10-22T16:06:31Z</update_date>
+    <create_date>2026-10-22T16:07:21Z</create_date>
+    <update_date>2026-10-22T16:07:21Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
