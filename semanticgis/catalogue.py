@@ -73,6 +73,7 @@ class Service:
     zmin: int | None = None      # XYZ tile services only
     zmax: int | None = None
     access: str | None = None    # id of the access profile whose key the service needs
+    alternative_for: str | None = None   # id of a service with the same data that QGIS cannot read
 
     @property
     def status(self):
@@ -149,6 +150,7 @@ def make_service(s):
         zmin=s.get("zmin"),
         zmax=s.get("zmax"),
         access=s.get("access") or LEGACY_AUTH.get(s.get("auth", "none")),
+        alternative_for=s.get("alternative_for"),
     )
 
 

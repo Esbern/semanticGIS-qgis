@@ -63,6 +63,7 @@ STATUS_TEXT = {
     "ok": "",
     "needs-auth": "not checked: needs a key",
     "placeholder": "needs an API key: serves a placeholder image",
+    "no-geometry": "no geometry in QGIS: opens as a table",
     "layer-not-found": "layer not found",
     "no-layer": "no layer name",
     "unreachable": "unreachable",
@@ -234,7 +235,9 @@ class SemanticGisDock(QDockWidget):
             star = " ★" if service is preferred else ""
             mark, key_tip = self._key_mark(service)
             text = f"{mark}{service.type.upper()} · {portal}{service.label}{star}" + (f"  ({note})" if note else "")
-            tip = "\n".join(filter(None, [service.endpoint, f"layer: {service.layer_name or '—'}", key_tip]))
+            alternative = ("Same data as a layer QGIS opens without geometry; use this one instead."
+                           if service.alternative_for else "")
+            tip = "\n".join(filter(None, [service.endpoint, f"layer: {service.layer_name or '—'}", key_tip, alternative]))
             parent.appendRow(self._item(text, ("service", dataset.id, service.id, leaf_id), tip))
         return bool(services)
 
