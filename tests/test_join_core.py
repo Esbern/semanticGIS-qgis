@@ -98,6 +98,14 @@ def test_numbering_coincidences_are_not_mixtures():
     assert [(c.field, c.source.label, bool(c.mixed)) for c in found] == [("code", "Rode", False)]
 
 
+def test_municipality_tables_are_not_offered_as_roder():
+    municipalities = KeyIndex(Source("LAU"), [RefUnit(f"DK_{k}", f"Kommune {k}", "DK") for k in (101, 147, 151, 153, 155, 157, 159, 161, 751, 851)], country="DK")
+    codes = ["101 København", "147 Frederiksberg", "151 Ballerup", "153 Brøndby", "155 Dragør", "157 Gentofte",
+             "159 Gladsaxe", "161 Glostrup", "751 Aarhus", "851 Aalborg", "000 Hele landet"]
+    found = detect({"omraade": codes}, kk() + [municipalities])
+    assert [c.source.label for c in found] == ["LAU"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

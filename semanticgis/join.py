@@ -170,6 +170,11 @@ def detect(columns, indexes, min_rate=MIN_RATE):
     for c in good:
         best[id(c.index)] = max(best.get(id(c.index), 0.0), c.rate)
     good = [c for c in good if c.mixed or c.rate >= best[id(c.index)] - NOISE_GAP]
+    # A candidate whose matched values are all matched by a better one in the same column (another
+    # reference) adds nothing: municipality codes 101-400 are also rode numbers, and vice versa.
+    good = [c for c in good if not any(
+        d is not c and d.field == c.field and d.index is not c.index and d.rate > c.rate
+        and c.matched_values <= d.matched_values for d in good)]
     return sorted(good, key=lambda c: (bool(c.mixed) and c.rate < min_rate, -c.rate, MODE_ORDER[c.mode], -c.matched))
 
 
