@@ -106,6 +106,7 @@ class Candidate:
     unmatched: list = field(default_factory=list)
     levels: list = field(default_factory=list)   # levels of the matched units, for display
     mixed: list = field(default_factory=list)    # [(label, matched)] when the column mixes several levels
+    matched_values: frozenset = field(default_factory=frozenset, repr=False)   # the column values it matched
 
     @property
     def rate(self):
@@ -158,6 +159,7 @@ def detect(columns, indexes, min_rate=MIN_RATE):
                         total=len(values),
                         unmatched=[str(v) for v, unit in hits if unit is None][:8],
                         levels=sorted({u.level for u in matched if u.level is not None}),
+                        matched_values=frozenset(str(v) for v, unit in hits if unit is not None),
                     )
                 )
     good = [c for c in candidates if c.rate >= min_rate]
@@ -186,7 +188,13 @@ def _mixed_levels(candidates, good):
             key = id(c.index)
             if key not in best or c.matched > best[key].matched:
                 best[key] = c
-        parts = [c for c in best.values() if c.matched >= 2]
+        # A real mixture has separate codes per level (districts 1001-1010, committees 2001-2012, …).
+        # Values claimed by two references are a coincidence of numbering (rode 101 and municipality
+        # 101), not a mixture: keep only references whose matches are disjoint from larger ones.
+        parts = []
+        for c in sorted((c for c in best.values() if c.matched >= 2), key=lambda c: -c.matched):
+            if all(not (c.matched_values & kept.matched_values) for kept in parts):
+                parts.append(c)
         if len(parts) < 2 or sum(c.matched for c in parts) < MIXED_COVER * parts[0].total:
             continue
         mixed = sorted(((getattr(c.source, "unit", c.source.label), c.matched) for c in parts), key=lambda p: -p[1])

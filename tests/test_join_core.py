@@ -88,6 +88,16 @@ def test_single_level_tables_are_unchanged():
     assert len(found) == 1 and not found[0].mixed and found[0].matched == 400
 
 
+def test_numbering_coincidences_are_not_mixtures():
+    # Rode codes 001-400 overlap Danish municipality codes (101 København, 147 Frederiksberg, …):
+    # a rode table must offer roder only, and its count columns nothing.
+    municipalities = KeyIndex(Source("LAU"), [RefUnit(f"DK_{k}", f"Kommune {k}", "DK") for k in (101, 147, 151, 153, 155, 157, 159, 161, 163, 165, 167, 169, 173, 175, 183, 185, 187, 190, 201, 210, 217, 219, 223, 230, 240, 250, 253, 259, 260, 265, 269, 270, 306, 316, 320, 326, 329, 330, 336, 340, 350, 360, 370, 376, 390, 400)], country="DK")
+    codes = ["1000", "999"] + [f"{i:03d}" for i in range(1, 401)]
+    counts = [str(v) for v in (0, 12, 38, 207, 119, 55, 401, 1330, 76871, 718, 416, 523, 980, 14, 87, 101, 147)]   # as in KKBOL4
+    found = detect({"code": codes, "Ejerbolig": counts}, kk() + [municipalities])
+    assert [(c.field, c.source.label, bool(c.mixed)) for c in found] == [("code", "Rode", False)]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
