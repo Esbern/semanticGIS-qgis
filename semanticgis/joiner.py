@@ -10,7 +10,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QMetaType
 
-from .layers import PROPERTY_PREFIX, ROOT_GROUP
+from .layers import PROPERTY_PREFIX, ROOT_GROUP, ensure_project_crs
 
 # QgsField takes QMetaType from QGIS 3.38; older 3.x versions need QVariant.
 try:
@@ -116,5 +116,6 @@ def add_joined_layer(layer):
     root = project.layerTreeRoot()
     group = root.findGroup(ROOT_GROUP) or root.insertGroup(0, ROOT_GROUP)
     joins = group.findGroup(JOIN_GROUP) or group.insertGroup(0, JOIN_GROUP)
+    ensure_project_crs(project, layer)
     project.addMapLayer(layer, False)
     joins.insertLayer(0, layer)
