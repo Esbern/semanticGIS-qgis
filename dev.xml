@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS" version="0.8.0-dev10" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS" version="0.8.0-dev11" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.8.0-dev10</version>
-    <changelog>0.8.0-dev10 Includes 0.7.8–0.7.9: joins tell separate levels from coincidental code overlaps (roder vs municipality codes).
+    <version>0.8.0-dev11</version>
+    <changelog>0.8.0-dev11 Includes 0.7.10: a project without CRS takes the first added layer's CRS.
+0.8.0-dev10 Includes 0.7.8–0.7.9: joins tell separate levels from coincidental code overlaps (roder vs municipality codes).
 0.8.0-dev9 Includes 0.7.7: mixed-level statistics columns offer every level; count columns are not offered as codes.
 0.8.0-dev8 Research-group servers no longer hold up the panel: the public catalogue shows at once, each server loads on its own (15 s limit) and its datasets appear when it answers; unreachable servers are named in the status line; open folders stay open.
 0.8.0-dev7 Includes 0.7.6 (root certificates for SSL errors, Test connections, subsets via POST); Test connections also checks the extension servers.
@@ -13,6 +14,7 @@
 0.8.0-dev4 Fix: the SemanticGIS submenu (Link to leaf, Publish, Save metadata) and Copy attribution now appear on the Layers panel's right-click menu (from 0.7.3).
 0.8.0-dev3 Prototype: write back to research group projects. Right-click a layer › SemanticGIS: Link to leaf…, Publish to research group… (COG/GeoParquet to the package registry + STAC, one commit), Edit metadata… and Save metadata to GitLab (refused, not overwritten, after a colleague's change).
 0.8.0-dev2 Prototype: private extensions from GitLab (Settings → Extension servers); their datasets appear under the leaves they name and in an Extensions branch. Includes 0.7.2.
+0.7.10 A project without a coordinate system (e.g. after opening a file without one) gets the CRS of the first layer the plugin adds, so layers in different CRSs line up instead of being drawn kilometres apart.
 0.7.9 Join: a reference is not offered when all its matches are also matched by a better one in the same column (municipality codes 101–400 are also rode numbers).
 0.7.8 Join: levels count as mixed only when their codes are separate, so rode codes that equal municipality codes (101, 147 …) no longer make a rode table look mixed. Københavns Kommune's bydele, lokaludvalg, kvarterer and roder are in the catalogue as reference units.
 0.7.7 Join: a statistics table that mixes levels in one column (e.g. Københavns Kommune's KKBEF8: districts, local committees and quarters) offers every level, each joining its own rows; number columns whose values happen to look like unit codes are no longer offered.
@@ -38,13 +40,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.8.0-dev10.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.8.0-dev10/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.8.0-dev11.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.8.0-dev11/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.8.0-dev10/semanticgis.0.8.0-dev10.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.8.0-dev11/semanticgis.0.8.0-dev11.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-10-22T16:07:54Z</create_date>
-    <update_date>2026-10-22T16:07:54Z</update_date>
+    <create_date>2026-10-22T16:21:35Z</create_date>
+    <update_date>2026-10-22T16:21:35Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
