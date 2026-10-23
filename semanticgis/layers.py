@@ -63,13 +63,16 @@ def tile_matrix_set_crs(name):
 
 def wfs_uri(url, layer, only_in_view=True, post=False):
     """`post` sends GetFeature as POST, with any filter in the body: some servers sit behind a firewall
-    that blocks filters in the URL (Danmarks Miljøportal answers 403 "Request Blocked")."""
+    that blocks filters in the URL (Danmarks Miljøportal answers 403 "Request Blocked").
+    forceInitialGetFeature reads one feature to learn the real geometry type: GeoDanmark declares 2D
+    types (Polygon) but sends 3D features (PolygonZ), which QGIS otherwise rejects."""
     params = {
         "url": url,
         "typename": layer,
         "version": "auto",
         "pagingEnabled": "true",
         "restrictToRequestBBOX": "1" if only_in_view else "0",
+        "forceInitialGetFeature": "true",
     }
     if post:
         params["httpMethod"] = "post"

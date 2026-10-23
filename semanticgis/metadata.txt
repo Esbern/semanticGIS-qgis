@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.7.12
+version=0.7.13
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -16,7 +16,8 @@ icon=icon.svg
 tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics
 experimental=False
 deprecated=False
-changelog=0.7.12 WFS layers that QGIS opens without geometry (Datafordeleren's DAGIM, e.g. Kommuneinddeling 1:10.000) are shown as 'no geometry in QGIS' and not offered as working; where the same data exists in DAGI WFS entiteter, that layer is preferred instead.
+changelog=0.7.13 Fix: GeoDanmark WFS layers (e.g. Bykerne) failed with 'Received feature geometry has Z values but the layer type (Polygon) does not'. WFS layers now read one feature first to learn the real geometry type (QGIS's 'Force initial GetFeature').
+    0.7.12 WFS layers that QGIS opens without geometry (Datafordeleren's DAGIM, e.g. Kommuneinddeling 1:10.000) are shown as 'no geometry in QGIS' and not offered as working; where the same data exists in DAGI WFS entiteter, that layer is preferred instead.
     0.7.11 Fix: layers added by the plugin left QGIS's coordinate systems broken about 30 s later (layers drawn unprojected, saved files with 'Undefined SRS', GeoParquet export crashing, processing exports without CRS). Layers built in the background now get a CRS made on the main thread, with QGIS's CRS cache cleared.
     0.7.10 A project without a coordinate system (e.g. after opening a file without one) gets the CRS of the first layer the plugin adds, so layers in different CRSs line up instead of being drawn kilometres apart.
     0.7.9 Join: a reference is not offered when all its matches are also matched by a better one in the same column (municipality codes 101–400 are also rode numbers).
