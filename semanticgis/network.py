@@ -35,3 +35,43 @@ def install():
 def uninstall(preprocessor_id):
     if preprocessor_id:
         QgsNetworkAccessManager.removeRequestPreprocessor(preprocessor_id)
+
+
+def get(url, timeout_ms=30000):
+    """GET through the QGIS network manager (proxy settings, keys added by access.py); bytes.
+    Safe in a QgsTask. Raises OSError with the HTTP status on failure."""
+    from qgis.core import QgsBlockingNetworkRequest
+    from qgis.PyQt.QtCore import QUrl
+
+    request = QgsBlockingNetworkRequest()
+    network_request = QNetworkRequest(QUrl(url))
+    network_request.setTransferTimeout(timeout_ms)
+    if request.get(network_request, True) != QgsBlockingNetworkRequest.ErrorCode.NoError:
+        reply = request.reply()
+        status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+        raise OSError(f"HTTP {status}: {request.errorMessage()}" if status else request.errorMessage())
+    return bytes(request.reply().content())
+
+
+def send(method, url, body, content_type="application/json", timeout_ms=300000):
+    """POST or PUT `body` (bytes) through the QGIS network manager; returns (status, bytes).
+    HTTP errors are returned, not raised, so callers can read the server's message."""
+    from qgis.core import QgsBlockingNetworkRequest
+    from qgis.PyQt.QtCore import QByteArray, QUrl
+
+    request = QgsBlockingNetworkRequest()
+    network_request = QNetworkRequest(QUrl(url))
+    network_request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, content_type)
+    network_request.setTransferTimeout(timeout_ms)
+    data = QByteArray(body)
+    if method == "POST":
+        request.post(network_request, data)
+    elif method == "PUT":
+        request.put(network_request, data)
+    else:
+        raise ValueError(method)
+    reply = request.reply()
+    status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+    if not status:
+        raise OSError(request.errorMessage())
+    return int(status), bytes(reply.content())

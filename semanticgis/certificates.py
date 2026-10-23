@@ -211,7 +211,8 @@ class ConnectionDialog:
         def run():
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
-                state["results"] = diagnose()
+                from .dock import extension_servers   # the research groups' GitLab servers
+                state["results"] = diagnose([(f"Extension server {host}", f"https://{host}/") for host in extension_servers()])
             finally:
                 QApplication.restoreOverrideCursor()
             table.setRowCount(0)
