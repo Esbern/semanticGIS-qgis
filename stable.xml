@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS" version="0.7.13" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS" version="0.7.14" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.7.13</version>
-    <changelog>0.7.13 Fix: GeoDanmark WFS layers (e.g. Bykerne) failed with 'Received feature geometry has Z values but the layer type (Polygon) does not'. WFS layers now read one feature first to learn the real geometry type (QGIS's 'Force initial GetFeature').
+    <version>0.7.14</version>
+    <changelog>0.7.14 SemanticGIS tools in the Processing Toolbox, grouped by what they do. First tool: Raster analysis › Tabulate area (legend labels), the pixels or area of each class of a categorical raster (land use) inside each polygon, one column per legend label.
+0.7.13 Fix: GeoDanmark WFS layers (e.g. Bykerne) failed with 'Received feature geometry has Z values but the layer type (Polygon) does not'. WFS layers now read one feature first to learn the real geometry type (QGIS's 'Force initial GetFeature').
 0.7.12 WFS layers that QGIS opens without geometry (Datafordeleren's DAGIM, e.g. Kommuneinddeling 1:10.000) are shown as 'no geometry in QGIS' and not offered as working; where the same data exists in DAGI WFS entiteter, that layer is preferred instead.
 0.7.11 Fix: layers added by the plugin left QGIS's coordinate systems broken about 30 s later (layers drawn unprojected, saved files with 'Undefined SRS', GeoParquet export crashing, processing exports without CRS). Layers built in the background now get a CRS made on the main thread, with QGIS's CRS cache cleared.
 0.7.10 A project without a coordinate system (e.g. after opening a file without one) gets the CRS of the first layer the plugin adds, so layers in different CRSs line up instead of being drawn kilometres apart.
@@ -33,18 +34,18 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.7.13.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.13/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.7.14.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.14/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.13/semanticgis.0.7.13.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.14/semanticgis.0.7.14.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-10-23T04:57:49Z</create_date>
-    <update_date>2026-10-23T04:57:49Z</update_date>
+    <create_date>2026-10-24T16:44:27Z</create_date>
+    <update_date>2026-10-24T16:44:27Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
     <repository>https://github.com/Esbern/semanticGIS-qgis</repository>
-    <tags>wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics</tags>
+    <tags>wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics,processing,zonal,land use</tags>
     <server>False</server>
   </pyqgis_plugin>
 </plugins>
