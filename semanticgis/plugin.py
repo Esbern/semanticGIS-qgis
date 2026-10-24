@@ -6,7 +6,7 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import Qgis, QgsMessageLog, QgsProject
+from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsProject
 
 from . import certificates, network, repository
 from .access import KEYS
@@ -23,8 +23,18 @@ class SemanticGisPlugin:
         self.action = None
         self.network_fix = None
         self.layer_menu_signal = None
+        self.provider = None
+
+    def initProcessing(self):
+        """The SemanticGIS tools in the Processing Toolbox (QGIS calls this, as metadata says hasProcessingProvider)."""
+        if self.provider is None:
+            from .tools import SemanticGisProvider
+
+            self.provider = SemanticGisProvider()
+            QgsApplication.processingRegistry().addProvider(self.provider)
 
     def initGui(self):
+        self.initProcessing()
         self.network_fix = network.install()
         try:   # roots Datafordeleren and Dataforsyningen need, if QGIS does not trust them (SSL errors)
             certificates.ensure_roots()
@@ -105,6 +115,9 @@ class SemanticGisPlugin:
         self._sync_action()
 
     def unload(self):
+        if self.provider is not None:
+            QgsApplication.processingRegistry().removeProvider(self.provider)
+            self.provider = None
         KEYS.uninstall()
         try:
             QgsProject.instance().readProject.disconnect(self._project_read)
