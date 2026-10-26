@@ -8,8 +8,10 @@ from qgis.PyQt.QtWidgets import QAction
 
 from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsProject
 
-from . import certificates, network, repository
+from . import certificates, network, publish, repository
 from .access import KEYS
+from .dock import extension_servers
+from .extensions import server_profile
 from .attribution import copy_layer_attributions
 from .dock import SemanticGisDock, plugin_version
 
@@ -43,6 +45,7 @@ class SemanticGisPlugin:
         repository.register(plugin_version())   # QGIS then offers updates of the plugin
         # Keys are added to requests as they are sent; an encrypted store stays locked until needed.
         KEYS.load(prompt=False)
+        KEYS.set_extra_profiles({p.id: p for p in map(server_profile, extension_servers())})
         KEYS.install()
         QgsProject.instance().readProject.connect(self._project_read)
         icon = QIcon(os.path.join(os.path.dirname(__file__), "icon.svg"))
@@ -82,6 +85,23 @@ class SemanticGisPlugin:
                            lambda: copy_layer_attributions(self.iface, layers, catalogue))
         menu.addAction("Copy attributions of all layers (SemanticGIS)",
                        lambda: copy_layer_attributions(self.iface, None, catalogue))
+        if len(layers) != 1:
+            return
+        layer = layers[0]
+        sub = menu.addMenu("SemanticGIS")
+        if catalogue is None:
+            action = sub.addAction("Open the SemanticGIS panel to link, publish or save")
+            action.setEnabled(False)
+            return
+        sub.addAction("Link to leaf…", lambda: publish.link_to_leaf(self.iface, catalogue, layer))
+        dataset = catalogue.datasets.get(layer.customProperty("semanticgis/dataset") or "")
+        if dataset is not None and dataset.extension is not None:
+            sub.addAction("Edit metadata…", lambda: self.iface.showLayerProperties(layer, "mOptsPage_Metadata"))
+            sub.addAction(f"Save metadata to GitLab ({dataset.extension.title})",
+                          lambda: publish.save_metadata(self.iface, catalogue, layer, self.dock.rebuild))
+        elif publish.publishable(layer):
+            sub.addAction("Publish to research group…",
+                          lambda: publish.publish(self.iface, catalogue, layer, self.dock.reload))
 
     def _ensure_dock(self):
         if self.dock is None:

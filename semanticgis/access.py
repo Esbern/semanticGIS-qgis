@@ -23,6 +23,7 @@ LEGACY_SETTINGS = {"dataforsyningen": "semanticgis/dataforsyningen_token", "data
 class KeyStore:
     def __init__(self):
         self.profiles = dict(BUILTIN_PROFILES)
+        self._extra = {}   # profiles not from the catalogue (extension servers); kept across reloads
         self._keys = {}
         self.loaded = False
         self._preprocessor = None
@@ -30,8 +31,21 @@ class KeyStore:
     # -- profiles and keys ---------------------------------------------------------------
 
     def set_profiles(self, profiles):
-        self.profiles = dict(BUILTIN_PROFILES)
-        self.profiles.update(profiles or {})
+        """The catalogue's profiles (plus the built-in ones and the extension servers')."""
+        self.profiles = {**BUILTIN_PROFILES, **(profiles or {}), **self._extra}
+        self._after_change()
+
+    def set_extra_profiles(self, profiles):
+        """Profiles that do not come from the catalogue: one per extension server."""
+        for profile_id in set(self._extra) - set(profiles or {}):
+            self.profiles.pop(profile_id, None)
+        self._extra = dict(profiles or {})
+        self.profiles.update(self._extra)
+        self._after_change()
+
+    def _after_change(self):
+        if self._preprocessor is not None:
+            self.sync_gdal()
 
     @staticmethod
     def encrypted():
@@ -62,6 +76,7 @@ class KeyStore:
             self._keys = {i: settings.value(KEY_PREFIX + i, "") or "" for i in self._stored_ids()}
         self._keys = {i: k for i, k in self._keys.items() if k}
         self.loaded = True
+        self._after_change()
         return True
 
     def save(self, keys, encrypted):
@@ -85,11 +100,13 @@ class KeyStore:
         settings.setValue(ENCRYPTED, bool(encrypted))
         self._keys = kept
         self.loaded = True
+        self._after_change()
 
     def use(self, keys):
         """Use these keys (profile id -> key) in this session without storing them (scripts, tests)."""
         self._keys.update({i: k for i, k in keys.items() if k})
         self.loaded = True
+        self._after_change()
 
     # The .env names of semanticGIS-code, for scripts and tests.
     ENV = {"datafordeler": "DATAFORDELER_API_KEY", "dataforsyningen": "DATAFORSYNINGEN_TOKEN", "carto": "CARTO_API_KEY"}
@@ -137,6 +154,10 @@ class KeyStore:
             key = self._keys.get(profile.id)
             if not key or not profile.matches(host):
                 continue
+            if profile.header:   # header keys (GitLab tokens) only travel over https
+                if url.scheme() == "https" and not request.hasRawHeader(profile.header.encode()):
+                    request.setRawHeader(profile.header.encode(), key.encode())
+                return
             query = QUrlQuery(url)
             if any(name.lower() == profile.param.lower() for name, _ in query.queryItems()):
                 return   # the URL already carries a key (e.g. a layer added by an older version)
@@ -145,14 +166,45 @@ class KeyStore:
             request.setUrl(url)
             return
 
+    # Files read by GDAL (COG, GeoParquet, … via /vsicurl/) do not pass the QGIS network manager:
+    # header keys are given to GDAL per host instead, so they stay out of the layer source too.
+
+    def _gdal_prefixes(self, profile):
+        return [f"/vsicurl/https://{host}/" for host in profile.hosts]
+
+    def sync_gdal(self):
+        """Give GDAL the current header keys, per host; clear hosts whose key is gone."""
+        try:
+            from osgeo import gdal
+        except ImportError:
+            return
+        for profile in list(self.profiles.values()):
+            if not profile.header:
+                continue
+            key = self._keys.get(profile.id)
+            for prefix in self._gdal_prefixes(profile):
+                if key:
+                    gdal.SetPathSpecificOption(prefix, "GDAL_HTTP_HEADERS", f"{profile.header}: {key}")
+                else:
+                    gdal.ClearPathSpecificOptions(prefix)
+
     def install(self):
         if self._preprocessor is None:
             self._preprocessor = QgsNetworkAccessManager.setRequestPreprocessor(self.preprocess)
+        self.sync_gdal()
 
     def uninstall(self):
         if self._preprocessor is not None:
             QgsNetworkAccessManager.removeRequestPreprocessor(self._preprocessor)
             self._preprocessor = None
+        try:
+            from osgeo import gdal
+        except ImportError:
+            return
+        for profile in list(self.profiles.values()):
+            if profile.header:
+                for prefix in self._gdal_prefixes(profile):
+                    gdal.ClearPathSpecificOptions(prefix)
 
 
 KEYS = KeyStore()

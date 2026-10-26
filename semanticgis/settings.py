@@ -5,6 +5,7 @@ from qgis.PyQt.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayou
 
 from .access import KEYS
 from .certificates import ConnectionDialog
+from .extensions import TOPIC, server_profile
 from .catalogue import DEFAULT_BASE_URL
 
 SETTINGS_PREFIX = "semanticgis/"
@@ -26,20 +27,23 @@ class SettingsDialog(QDialog):
         self.site = QLineEdit(settings.value(SETTINGS_PREFIX + "site_url", DEFAULT_SITE_URL))
         form.addRow("Documentation site", self.site)
 
+        self.servers = QLineEdit(settings.value(SETTINGS_PREFIX + "extension_servers", ""))
+        self.servers.setPlaceholderText("e.g. git.ruc.dk")
+        self.servers.setToolTip("GitLab servers with your research groups' SemanticGIS extension projects "
+                                f"(projects with the topic '{TOPIC}'). Separate several with commas.")
+        self.servers.editingFinished.connect(self._add_server_rows)
+        form.addRow("Extension servers", self.servers)
+
         heading = QLabel("<b>Your keys</b>")
         form.addRow(heading)
+        self.form = form
         self.unlocked = KEYS.loaded or KEYS.load(prompt=True)
         self.keys = {}
         for profile in sorted(profiles.values(), key=lambda p: p.title.lower()):
-            field = QLineEdit(KEYS.key(profile.id))
-            field.setEchoMode(QLineEdit.EchoMode.Password)
-            field.setEnabled(self.unlocked)
-            hint = f"Get one at {profile.signup_url}" if profile.signup_url else ""
-            field.setPlaceholderText(hint)
-            field.setToolTip("\n".join(filter(None, [f"Sent as '{profile.param}' to {', '.join(profile.hosts)}", profile.cost, hint])))
-            form.addRow(profile.title, field)
-            self.keys[profile.id] = field
+            self._add_key_row(profile)
+        self._add_server_rows()
 
+        self.keys_end = form.rowCount()   # key rows for servers added later go before this
         self.encrypt = QCheckBox("Keep the keys encrypted (QGIS master password)")
         self.encrypt.setChecked(KEYS.encrypted())
         self.encrypt.setEnabled(self.unlocked)
@@ -63,10 +67,39 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
+    def _add_key_row(self, profile, row=None):
+        if profile.id in self.keys:
+            return
+        field = QLineEdit(KEYS.key(profile.id))
+        field.setEchoMode(QLineEdit.EchoMode.Password)
+        field.setEnabled(self.unlocked)
+        hint = f"Create one at {profile.signup_url}" if profile.signup_url else ""
+        field.setPlaceholderText(hint)
+        how = f"header {profile.header}" if profile.header else f"'{profile.param}'"
+        field.setToolTip("\n".join(filter(None, [f"Sent as {how} to {', '.join(profile.hosts)}", profile.cost, hint])))
+        if row is None:
+            self.form.addRow(profile.title, field)
+        else:
+            self.form.insertRow(row, profile.title, field)
+            self.keys_end += 1
+        self.keys[profile.id] = field
+
+    def _server_list(self):
+        return [s.strip().rstrip("/") for s in self.servers.text().replace(";", ",").split(",") if s.strip()]
+
+    def _add_server_rows(self):
+        """A token field for each extension server, as soon as it is entered."""
+        for server in self._server_list():
+            profile = server_profile(server)
+            self._add_key_row(profile, getattr(self, "keys_end", None))
+
     def save(self):
         settings = QgsSettings()
         settings.setValue(SETTINGS_PREFIX + "catalogue_source", self.source.text().strip() or DEFAULT_BASE_URL)
         settings.setValue(SETTINGS_PREFIX + "site_url", self.site.text().strip() or DEFAULT_SITE_URL)
+        servers = self._server_list()
+        settings.setValue(SETTINGS_PREFIX + "extension_servers", ", ".join(servers))
+        KEYS.set_extra_profiles({p.id: p for p in map(server_profile, servers)})
         if self.unlocked:
             try:
                 KEYS.save({i: field.text() for i, field in self.keys.items()}, self.encrypt.isChecked())
