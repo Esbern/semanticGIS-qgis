@@ -17,16 +17,8 @@ from qgis.core import (
     QgsProcessingParameterBoolean, QgsProcessingParameterEnum, QgsProcessingParameterFeatureSink,
     QgsProcessingParameterFeatureSource, QgsProcessingParameterFile, QgsProcessingParameterRasterLayer,
 )
-from qgis.PyQt.QtCore import QMetaType
 
-# QgsField takes QMetaType from QGIS 3.38; older 3.x versions need QVariant.
-try:
-    COUNT_TYPE, AREA_TYPE = QMetaType.Type.LongLong, QMetaType.Type.Double
-    QgsField("probe", COUNT_TYPE)
-except (AttributeError, TypeError):
-    from qgis.PyQt.QtCore import QVariant
-
-    COUNT_TYPE, AREA_TYPE = QVariant.LongLong, QVariant.Double
+from .compat import DOUBLE as AREA_TYPE, INTEGER64 as COUNT_TYPE
 
 UNITS = ["Pixel count", "Area (map units²)", "Percent of the zone's classified pixels"]
 STRIP = 2048   # raster rows read at a time, so a zone as large as Denmark still fits in memory
