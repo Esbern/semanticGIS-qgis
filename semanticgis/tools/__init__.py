@@ -1,6 +1,6 @@
 """SemanticGIS tools in the Processing Toolbox.
 
-General tools ship with the plugin and are grouped by what they do (Raster analysis, …), the way QGIS
+General tools ship with the plugin and are grouped by what they do (Raster analysis, Vector table, …), the way QGIS
 groups its own, not by course: the same tool serves many classes. Research groups' own tools will come
 from their extension servers later and get their own group beside these.
 """
@@ -9,9 +9,10 @@ import os
 from qgis.core import QgsProcessingProvider
 from qgis.PyQt.QtGui import QIcon
 
+from .renumber_fid import RenumberFid
 from .tabulate_area import TabulateAreaLegend
 
-ALGORITHMS = [TabulateAreaLegend]
+ALGORITHMS = [TabulateAreaLegend, RenumberFid]
 
 
 class SemanticGisProvider(QgsProcessingProvider):
