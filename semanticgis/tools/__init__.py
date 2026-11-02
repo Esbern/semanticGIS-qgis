@@ -11,8 +11,9 @@ from qgis.PyQt.QtGui import QIcon
 
 from .renumber_fid import RenumberFid
 from .tabulate_area import TabulateAreaLegend
+from .zonal_statistics import ZonalStatisticsLegend
 
-ALGORITHMS = [TabulateAreaLegend, RenumberFid]
+ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid]
 
 
 class SemanticGisProvider(QgsProcessingProvider):
