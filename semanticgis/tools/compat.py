@@ -3,9 +3,9 @@ from qgis.core import QgsField
 from qgis.PyQt.QtCore import QMetaType
 
 try:
-    INTEGER64, DOUBLE = QMetaType.Type.LongLong, QMetaType.Type.Double
+    INTEGER64, DOUBLE, STRING = QMetaType.Type.LongLong, QMetaType.Type.Double, QMetaType.Type.QString
     QgsField("probe", INTEGER64)
 except (AttributeError, TypeError):
     from qgis.PyQt.QtCore import QVariant
 
-    INTEGER64, DOUBLE = QVariant.LongLong, QVariant.Double
+    INTEGER64, DOUBLE, STRING = QVariant.LongLong, QVariant.Double, QVariant.String
