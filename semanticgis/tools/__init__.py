@@ -9,11 +9,12 @@ import os
 from qgis.core import QgsProcessingProvider
 from qgis.PyQt.QtGui import QIcon
 
+from .aoi_wkt import AreaOfInterestWkt
 from .renumber_fid import RenumberFid
 from .tabulate_area import TabulateAreaLegend
 from .zonal_statistics import ZonalStatisticsLegend
 
-ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid]
+ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt]
 
 
 class SemanticGisProvider(QgsProcessingProvider):

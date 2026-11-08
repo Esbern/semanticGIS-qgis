@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.7.16
+version=0.7.17
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -13,11 +13,12 @@ repository=https://github.com/Esbern/semanticGIS-qgis
 tracker=https://github.com/Esbern/semanticGIS-qgis/issues
 category=Web
 icon=icon.svg
-tags=wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics,processing,zonal,land use
+tags=wkt,copernicus,area of interest,wcs,elevation,datafordeleren,basemap,xyz,catalogue,denmark,wfs,wms,wmts,ogc,semantic,inspire,nuts,lau,join,statistics,processing,zonal,land use
 experimental=False
 hasProcessingProvider=yes
 deprecated=False
-changelog=0.7.16 New tool: Raster analysis › Zonal statistics by class (legend labels). Statistics of a value raster (NDVI, elevation …) within each class of a categorical raster (land use), one row per legend label: count, area, mean, median, quartiles, standard deviation. The two rasters may differ in pixel size and CRS.
+changelog=0.7.17 New tool: Vector geometry › Area of interest as WKT (WGS 84). A rectangle, convex hull or simplified outline around a layer or its selected features, with an optional buffer in metres, as WKT in WGS 84, ready to paste into the Copernicus Browser. The rectangle is aligned to the layer's CRS (or a chosen one), so a download in UTM is not tilted. The WKT is copied to the clipboard and shown in a window.
+    0.7.16 New tool: Raster analysis › Zonal statistics by class (legend labels). Statistics of a value raster (NDVI, elevation …) within each class of a categorical raster (land use), one row per legend label: count, area, mean, median, quartiles, standard deviation. The two rasters may differ in pixel size and CRS.
     0.7.15 New tool: Vector table › Renumber feature ids (fid). Gives every feature a unique fid, so a layer saves as a GeoPackage again after Multipart to singleparts and similar tools ('UNIQUE constraint failed').
     0.7.14 SemanticGIS tools in the Processing Toolbox, grouped by what they do. First tool: Raster analysis › Tabulate area (legend labels), the pixels or area of each class of a categorical raster (land use) inside each polygon, one column per legend label.
     0.7.13 Fix: GeoDanmark WFS layers (e.g. Bykerne) failed with 'Received feature geometry has Z values but the layer type (Polygon) does not'. WFS layers now read one feature first to learn the real geometry type (QGIS's 'Force initial GetFeature').
