@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS" version="0.8.0-dev18" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS" version="0.8.0-dev19" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.8.0-dev18</version>
-    <changelog>0.8.0-dev18 Includes 0.7.17: Vector geometry › Area of interest as WKT (WGS 84), ready to paste into the Copernicus Browser.
+    <version>0.8.0-dev19</version>
+    <changelog>0.8.0-dev19 Includes 0.7.18: Data access › Download snapshot series, Vector overlay › Flatten snapshot series, Vector table › Combination of values (unordered).
+0.8.0-dev18 Includes 0.7.17: Vector geometry › Area of interest as WKT (WGS 84), ready to paste into the Copernicus Browser.
 0.8.0-dev17 Includes 0.7.16: Raster analysis › Zonal statistics by class (legend labels).
 0.8.0-dev16 Includes 0.7.15: Vector table › Renumber feature ids (fid).
 0.8.0-dev15 Includes 0.7.14: SemanticGIS tools in the Processing Toolbox; first tool Raster analysis › Tabulate area (legend labels).
@@ -54,13 +55,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.8.0-dev18.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.8.0-dev18/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.8.0-dev19.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.8.0-dev19/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.8.0-dev18/semanticgis.0.8.0-dev18.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.8.0-dev19/semanticgis.0.8.0-dev19.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-11-08T21:15:42Z</create_date>
-    <update_date>2026-11-08T21:15:42Z</update_date>
+    <create_date>2026-11-12T18:28:43Z</create_date>
+    <update_date>2026-11-12T18:28:43Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
