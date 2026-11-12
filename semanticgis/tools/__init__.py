@@ -10,11 +10,14 @@ from qgis.core import QgsProcessingProvider
 from qgis.PyQt.QtGui import QIcon
 
 from .aoi_wkt import AreaOfInterestWkt
+from .flatten_snapshots import FlattenSnapshots
 from .renumber_fid import RenumberFid
+from .snapshot_series import SnapshotSeries
 from .tabulate_area import TabulateAreaLegend
+from .value_combination import ValueCombination
 from .zonal_statistics import ZonalStatisticsLegend
 
-ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt]
+ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt, SnapshotSeries, FlattenSnapshots, ValueCombination]
 
 
 class SemanticGisProvider(QgsProcessingProvider):
