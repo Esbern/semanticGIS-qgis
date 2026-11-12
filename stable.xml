@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS" version="0.7.17" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS" version="0.7.18" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.7.17</version>
-    <changelog>0.7.17 New tool: Vector geometry › Area of interest as WKT (WGS 84). A rectangle, convex hull or simplified outline around a layer or its selected features, with an optional buffer in metres, as WKT in WGS 84, ready to paste into the Copernicus Browser. The rectangle is aligned to the layer's CRS (or a chosen one), so a download in UTM is not tilted. The WKT is copied to the clipboard and shown in a window.
+    <version>0.7.18</version>
+    <changelog>0.7.18 Three new tools for registers published as one layer per year (Marker, Markblokke, Økologiske arealer …): Data access › Download snapshot series fetches every year of a period for an area into one layer with a snapshot_year field; Vector overlay › Flatten snapshot series turns the years into one layer of pieces with one column per year (y2026_crop …), snapping older boundaries to the newest and merging slivers narrower than a tolerance; Vector table › Combination of values (unordered) writes the distinct values of several fields, e.g. a field's crops through the years.
+0.7.17 New tool: Vector geometry › Area of interest as WKT (WGS 84). A rectangle, convex hull or simplified outline around a layer or its selected features, with an optional buffer in metres, as WKT in WGS 84, ready to paste into the Copernicus Browser. The rectangle is aligned to the layer's CRS (or a chosen one), so a download in UTM is not tilted. The WKT is copied to the clipboard and shown in a window.
 0.7.16 New tool: Raster analysis › Zonal statistics by class (legend labels). Statistics of a value raster (NDVI, elevation …) within each class of a categorical raster (land use), one row per legend label: count, area, mean, median, quartiles, standard deviation. The two rasters may differ in pixel size and CRS.
 0.7.15 New tool: Vector table › Renumber feature ids (fid). Gives every feature a unique fid, so a layer saves as a GeoPackage again after Multipart to singleparts and similar tools ('UNIQUE constraint failed').
 0.7.14 SemanticGIS tools in the Processing Toolbox, grouped by what they do. First tool: Raster analysis › Tabulate area (legend labels), the pixels or area of each class of a categorical raster (land use) inside each polygon, one column per legend label.
@@ -37,13 +38,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.7.17.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.17/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.7.18.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.7.18/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.17/semanticgis.0.7.17.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.7.18/semanticgis.0.7.18.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-11-08T21:14:51Z</create_date>
-    <update_date>2026-11-08T21:14:51Z</update_date>
+    <create_date>2026-11-12T18:28:20Z</create_date>
+    <update_date>2026-11-12T18:28:20Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
