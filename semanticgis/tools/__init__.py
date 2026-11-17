@@ -10,14 +10,19 @@ from qgis.core import QgsProcessingProvider
 from qgis.PyQt.QtGui import QIcon
 
 from .aoi_wkt import AreaOfInterestWkt
+from .building_heights import BuildingHeights
+from .clip_to_geopackage import ClipToGeoPackage
 from .flatten_snapshots import FlattenSnapshots
 from .renumber_fid import RenumberFid
 from .snapshot_series import SnapshotSeries
+from .surface_partition import BuildPartitionLines, PolygonizePartition
 from .tabulate_area import TabulateAreaLegend
+from .urban_context import UrbanContext
 from .value_combination import ValueCombination
 from .zonal_statistics import ZonalStatisticsLegend
 
-ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt, SnapshotSeries, FlattenSnapshots, ValueCombination]
+ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt, SnapshotSeries, FlattenSnapshots, ValueCombination,
+              UrbanContext, BuildingHeights, ClipToGeoPackage, BuildPartitionLines, PolygonizePartition]
 
 
 class SemanticGisProvider(QgsProcessingProvider):

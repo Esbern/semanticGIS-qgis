@@ -116,7 +116,7 @@ def getfeature_url(endpoint, layer, rect, crs, start, output_format):
                        ("SRSNAME", urn), ("COUNT", str(PAGE)),
                        ("BBOX", f"{rect.xMinimum()},{rect.yMinimum()},{rect.xMaximum()},{rect.yMaximum()},{urn}"),
                        ("OUTPUTFORMAT", output_format)):
-        query.addQueryItem(key, value)
+        query.addQueryItem(key, value.replace("+", "%2B"))   # QUrlQuery leaves '+', which servers read as a space
     if start:   # only when paging: GeoServer refuses STARTINDEX on views without a primary key
         query.addQueryItem("STARTINDEX", str(start))
     url.setQuery(query)
@@ -163,6 +163,10 @@ def fetch(endpoint, layer, rect, crs, feedback):
         text = decode(data) if data else ""
         if error != NO_ERROR:
             found = re.search(r"<(?:\w+:)?ExceptionText>(.*?)</", text, re.S)
+            if (found and "output format" in found.group(1).lower() and output_format == "application/json"
+                    and start == 0 and not use_post):   # Datafordeleren: no GeoJSON, refused with an error
+                output_format = "application/gml+xml; version=3.2"
+                continue
             if start and found and "natural order" in found.group(1):
                 feedback.reportError(f"{layer}: the server cannot page this layer; kept the first {len(features)} features")
                 break
