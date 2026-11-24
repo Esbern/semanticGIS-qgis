@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS v2 (test)" version="0.9.0-dev4" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS v2 (test)" version="0.9.0-dev5" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.9.0-dev4</version>
-    <changelog>0.9.0-dev4 The tooltip of a service or file marked 🔒 says who can get access, what it costs and how.
+    <version>0.9.0-dev5</version>
+    <changelog>0.9.0-dev5 Standard symbology: files on the data share get the publisher's own legend when one of their columns uses a code scheme that has one (GEUS's surface geology maps 1:25 000 and 1:200 000, the geomorphological map, Bornholm); right-click, Add layer with legend, for Danish, English, colours only or none.
+0.9.0-dev4 The tooltip of a service or file marked 🔒 says who can get access, what it costs and how.
 0.9.0-dev3 The spheres and twigs come from the v2 catalogue: one Soil twig, its leaves under headings (Texture, Organic matter and lime, Soil types and classification). Organisations have their proper names.
 0.9.0-dev2 Reads the v2 catalogue (and still the v1 one): 75 leaves, several twigs per leaf; variables under each leaf and version, with scale and reference system; leaf links nobody has reviewed are flagged (⚑), those resting on guessed columns marked (?); files on the RUC data share load directly (give the link and password in Settings; the password is never written into layers or projects); columns are named after their variable, also in WFS layers. Includes 0.7.20.
 0.9.0-dev1 First version of the v2 test line, based on 0.7.19. Reads the catalogue from the test site semanticgis.xyz and opens its pages there; still the v1 catalogue format. Own update channel (v2.xml). For testing in a separate QGIS profile only.
@@ -44,13 +45,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.9.0-dev4.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.9.0-dev4/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.9.0-dev5.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.9.0-dev5/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.9.0-dev4/semanticgis.0.9.0-dev4.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.9.0-dev5/semanticgis.0.9.0-dev5.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-11-24T10:59:21Z</create_date>
-    <update_date>2026-11-24T10:59:21Z</update_date>
+    <create_date>2026-11-24T13:02:13Z</create_date>
+    <update_date>2026-11-24T13:02:13Z</update_date>
     <experimental>True</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
