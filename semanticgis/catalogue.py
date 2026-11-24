@@ -209,6 +209,7 @@ class Leaf:
     twigs: list
     primary_lens: str | None
     datasets: list = field(default_factory=list)
+    headings: dict = field(default_factory=dict)   # v2: twig id -> heading the leaf stands under
 
 
 @dataclass

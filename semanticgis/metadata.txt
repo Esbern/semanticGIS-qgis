@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.9.0-dev2
+version=0.9.0-dev3
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -17,7 +17,8 @@ tags=urban design,building heights,dhm,geodanmark,blender,wkt,copernicus,area of
 experimental=True
 hasProcessingProvider=yes
 deprecated=False
-changelog=0.9.0-dev2 Reads the v2 catalogue (and still the v1 one): 75 leaves, several twigs per leaf; variables under each leaf and version, with scale and reference system; leaf links nobody has reviewed are flagged (⚑), those resting on guessed columns marked (?); files on the RUC data share load directly (give the link and password in Settings; the password is never written into layers or projects); columns are named after their variable, also in WFS layers. Includes 0.7.20.
+changelog=0.9.0-dev3 The spheres and twigs come from the v2 catalogue: one Soil twig, its leaves under headings (Texture, Organic matter and lime, Soil types and classification). Organisations have their proper names.
+    0.9.0-dev2 Reads the v2 catalogue (and still the v1 one): 75 leaves, several twigs per leaf; variables under each leaf and version, with scale and reference system; leaf links nobody has reviewed are flagged (⚑), those resting on guessed columns marked (?); files on the RUC data share load directly (give the link and password in Settings; the password is never written into layers or projects); columns are named after their variable, also in WFS layers. Includes 0.7.20.
     0.9.0-dev1 First version of the v2 test line, based on 0.7.19. Reads the catalogue from the test site semanticgis.xyz and opens its pages there; still the v1 catalogue format. Own update channel (v2.xml). For testing in a separate QGIS profile only.
     0.7.20 Fix: Settings › Test connections no longer says that HTTPS is being inspected at Datafordeleren, whose certificates now come from DigiCert Ireland Limited.
     0.7.19 Tools for urban design, from the workshop scripts of the Building heights from DHM recipe: Data access › Urban context for a study area (Denmark) fetches the chosen GeoDanmark layers for a study area (a polygon or a rectangle drawn on the map), gives every building a height, eave height and roof type from Danmarks Højdemodel, and saves it all in one GeoPackage with the terrain, the newest orthophoto and the OpenStreetMap map as GeoTIFFs (0.1 m), added to the project and styled. Raster analysis › Building heights from elevation models does the heights for any building layer (Danmarks Højdemodel when no rasters are chosen). Vector general › Clip project layers to one GeoPackage clips all visible layers (and data rasters, also WCS) with their styles. Vector geometry › Surface partition 1 and 2 build lines with gaps marked and polygons with a surface drop-down. Fix: Download snapshot series falls back to GML on servers that refuse GeoJSON with an error (Datafordeleren).

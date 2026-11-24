@@ -45,6 +45,8 @@ expect("v2 read", c.is_v2)
 expect("retired leaves are gone", [x in c.leaves for x in ("soil-properties", "geological-strata")], [False, False])
 expect("new leaves are there", all(x in c.leaves for x in ("clay-content", "geotope", "seabed-sediment")))
 expect("geotope is in five twigs", sum(any(l.id == "geotope" for l in t.leaves) for t in c.twigs.values()), 5)
+expect("one soil twig", [t for t in c.twigs if t.startswith("geosphere_soil")], ["geosphere_soil"])
+expect("no theme points at a twig that is gone", [t for x in c.classical_themes for t in x["twigs"] if t not in c.twigs], [])
 expect("joins still work", len(c.references) > 3)
 def walk(item, out):
     for i in range(item.rowCount()):
@@ -53,6 +55,9 @@ def walk(item, out):
 items = walk(dock.model.invisibleRootItem(), [])
 kinds = {i.data(ROLE)[0] for i in items if i.data(ROLE)}
 expect("variables, versions and share files in the panel", {"variables", "variable", "version", "share", "sharefile"} <= kinds)
+soil = next(i for i in items if i.data(ROLE) == ("twig", "geosphere_soil") and i.text().startswith("Soil"))
+expect("soil leaves under headings", [soil.child(k).text().rstrip(" ★") for k in range(soil.rowCount())], ["Organic matter and lime", "Soil types and classification", "Texture", "Geotope"])
+expect("organisation names", c.owners["institut-for-agrooekologi"], "Department of Agroecology, Aarhus University")
 flag = [i for i in items if i.data(ROLE) and i.data(ROLE)[0] == "dataset" and i.text().endswith("⚑")]
 expect("unreviewed links are flagged and explained", bool(flag) and "Nobody has checked" in flag[0].toolTip())
 def ds_under(leaf_id):

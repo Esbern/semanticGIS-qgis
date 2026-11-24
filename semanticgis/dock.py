@@ -373,10 +373,22 @@ class SemanticGisDock(QDockWidget):
         sphere_item = self._item(sphere.title, ("sphere", sphere.id), sphere.description, bold=True)
         for twig in sphere.twigs:
             twig_item = self._item(f"{twig.title} ({len(twig.leaves)})", ("twig", twig.id))
-            for leaf in twig.leaves:
-                twig_item.appendRow(self._leaf_item(leaf, twig))
+            self._twig_leaves(twig_item, twig)
             sphere_item.appendRow(twig_item)
         return sphere_item
+
+    def _twig_leaves(self, parent, twig):
+        """A twig's leaves, under their headings where the twig has any; leaves without one come last."""
+        groups = {}
+        for leaf in twig.leaves:
+            groups.setdefault(leaf.headings.get(twig.id), []).append(leaf)
+        for heading in sorted(h for h in groups if h):
+            item = self._item(heading, ("heading", twig.id), "A heading, not a level of its own: the leaves belong to the twig")
+            for leaf in groups[heading]:
+                item.appendRow(self._leaf_item(leaf, twig))
+            parent.appendRow(item)
+        for leaf in groups.get(None, []):
+            parent.appendRow(self._leaf_item(leaf, twig))
 
     def _realisation_item(self, rel):
         leaf_id = next((t[len("leaf/"):] for t in rel.get("tags", []) if t.startswith("leaf/")), None)
@@ -740,7 +752,7 @@ class SemanticGisDock(QDockWidget):
             return f"/Datasets by Owner/{data[1]}/"
         if kind == "sphere":
             return next((s.path for s in c.spheres if s.id == data[1]), None)
-        if kind == "twig":
+        if kind in ("twig", "heading"):
             twig = c.twigs.get(data[1])
             return twig.path if twig and not twig.draft else None
         if kind == "leaf":

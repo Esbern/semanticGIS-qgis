@@ -80,8 +80,10 @@ def as_v1(index, services, index2, catalogue2):
         datasets[dataset_id] = entry
         for l in d["leaf_links"]:
             by_leaf.setdefault(l["leaf"], []).append((LINK_ORDER.get(l["status"], 9), d["title"].lower(), dataset_id))
-    return ({**index, "leaves": leaves},
-            {**services, "datasets": datasets, "leaves": {k: [x[2] for x in sorted(v)] for k, v in by_leaf.items()}})
+    sphere = {k: index2[k] for k in ("spheres", "twigs", "classical_themes") if k in index2}   # the v2 twigs
+    owners = {**services.get("owners", {}), **{k: o.get("name") or o["title"] for k, o in index2.get("organisations", {}).items()}}
+    return ({**index, **sphere, "leaves": leaves},
+            {**services, "owners": owners, "datasets": datasets, "leaves": {k: [x[2] for x in sorted(v)] for k, v in by_leaf.items()}})
 
 
 def extend(catalogue, index2, catalogue2, make_service):
@@ -91,6 +93,8 @@ def extend(catalogue, index2, catalogue2, make_service):
                     v.get("leaf"), v.get("relations") or [])
         for k, v in index2["variables"].items()}
     catalogue.leaf_variables = {}
+    for leaf_id, l in index2["leaves"].items():
+        catalogue.leaves[leaf_id].headings = l.get("headings") or {}
     for k, v in index2["variables"].items():
         for leaf in [v.get("leaf")] + list(v.get("also_leaves") or []):
             if leaf in catalogue.leaves:
