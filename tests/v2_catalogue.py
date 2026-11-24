@@ -57,6 +57,8 @@ kinds = {i.data(ROLE)[0] for i in items if i.data(ROLE)}
 expect("variables, versions and share files in the panel", {"variables", "variable", "version", "share", "sharefile"} <= kinds)
 soil = next(i for i in items if i.data(ROLE) == ("twig", "geosphere_soil") and i.text().startswith("Soil"))
 expect("soil leaves under headings", [soil.child(k).text().rstrip(" ★") for k in range(soil.rowCount())], ["Organic matter and lime", "Soil types and classification", "Texture", "Geotope"])
+expect("how to get access", [w for w in ("teacher", "Students") if w not in dock._how_to_get("ruc-data-share")], [])
+expect("every key has its access path", sorted(set(c.access_profiles) - set(c.access_paths)), [])
 expect("organisation names", c.owners["institut-for-agrooekologi"], "Department of Agroecology, Aarhus University")
 flag = [i for i in items if i.data(ROLE) and i.data(ROLE)[0] == "dataset" and i.text().endswith("⚑")]
 expect("unreviewed links are flagged and explained", bool(flag) and "Nobody has checked" in flag[0].toolTip())

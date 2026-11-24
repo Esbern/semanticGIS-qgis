@@ -229,7 +229,15 @@ class SemanticGisDock(QDockWidget):
             return "", ""
         if KEYS.has_key(profile.id):
             return "🔑 ", f"Uses your {profile.title}."
-        return "🔒 ", f"Needs your own {profile.title}: right-click to set it" + (f" (get one at {profile.signup_url})" if profile.signup_url else "") + "."
+        how = self._how_to_get(profile.id)
+        return "🔒 ", f"Needs your own {profile.title}: right-click to set it" + (f" (get one at {profile.signup_url})" if profile.signup_url else "") + "." + (f"\n{how}" if how else "")
+
+    def _how_to_get(self, path_id):
+        """Who can use a published access path, what it costs and how to get in; '' when the catalogue does not say."""
+        path = getattr(self.catalogue, "access_paths", {}).get(path_id)
+        if not path:
+            return ""
+        return f"For: {path['who']} · Cost: {path['cost']}\nHow to get access: {path['how_to_get']}."
 
     def _service_items(self, parent, dataset, leaf_id=None):
         services = sorted(self._visible_services(dataset), key=lambda s: s.priority)
@@ -267,6 +275,8 @@ class SemanticGisDock(QDockWidget):
             mark = "🔑 " if KEYS.has_key(SHARE) else "🔒 "
             tip = f"Licence: {snapshot['licence']}" + ("\nNot an open licence: read the terms in the snapshot's README before use, and pass them on."
                                                       if "leveringsbetingelser" in snapshot["licence"].lower() else "")
+            how = "" if KEYS.has_key(SHARE) else self._how_to_get(SHARE)
+            tip += f"\n{how}" if how else ""
             group = self._item(f"{mark}RUC data share, {snapshot['snapshot']} ({len(snapshot['files'])})", ("share", dataset.id, s_index, leaf_id), tip)
             for f_index, f in enumerate(snapshot["files"]):
                 rows = f" · {f.rows:,} rows" if f.rows else ""
