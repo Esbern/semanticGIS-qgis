@@ -41,7 +41,7 @@ SERVERS = [
     ("semanticgis.xyz (v2 test catalogue)", "https://semanticgis.xyz/"),
 ]
 PUBLIC_ISSUERS = ("Sectigo Limited", "Let's Encrypt", "Internet Security Research Group", "The USERTRUST Network",
-                  "DigiCert Inc", "GlobalSign nv-sa", "Google Trust Services", "Amazon", "Microsoft Corporation")
+                  "DigiCert", "GlobalSign nv-sa", "Google Trust Services", "Amazon", "Microsoft Corporation")
 CLOCK_ERRORS = (QSslError.SslError.CertificateNotYetValid, QSslError.SslError.CertificateExpired)
 TAG = "SemanticGIS"
 

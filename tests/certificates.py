@@ -72,15 +72,22 @@ expect("names the inspector", "AVAST Software" in certs.classify([], [av], QNetw
 expect("wrong clock", certs.classify([E.CertificateNotYetValid], [r46], QNetworkReply.NetworkError.SslHandshakeFailedError)[0], "clock")
 expect("no connection", certs.classify([], [], QNetworkReply.NetworkError.HostNotFoundError)[0], "unreachable")
 
-# Live: Datafordeleren from a computer that lacks R46, and with QGIS's roots.
-without = [c for c in certs.trusted_roots() if digest(c) != digest(r46)]
+# A public CA under another company name (DigiCert Ireland Limited since November 2026) is not an inspector.
+class Leaf:
+    def __init__(self, organisation): self.organisation = organisation
+    def issuerInfo(self, _): return [self.organisation]
+expect("DigiCert Ireland is a public CA", certs.classify([], [Leaf("DigiCert Ireland Limited")], QNetworkReply.NetworkError.NoError)[0], "ok")
+expect("an unknown issuer is still inspection", certs.classify([], [Leaf("Example Antivirus")], QNetworkReply.NetworkError.NoError)[0], "inspected")
+
+# Live: Datafordeleren from a computer that lacks the root its chain ends in (whichever that is now).
+root_name = certs.check_server("https://wms.datafordeler.dk/")["root"]
+without = [c for c in certs.trusted_roots() if c.subjectDisplayName() != root_name]
 student = certs.check_server("https://wms.datafordeler.dk/", roots=without)
-expect("live, without R46: untrusted", student["state"], "untrusted")
+expect(f"live, without {root_name}: untrusted", student["state"], "untrusted")
 expect("the student's error message", any("self-signed, and untrusted" in t or "local issuer" in t for t in student["ssl_errors"]), True)
-expect("chain ends at R46", "R46" in student["root"], True)
 states = {label: r["state"] for label, r in certs.diagnose()}
 expect("live, all servers ok", set(states.values()), {"ok"})
-print("\n" + certs.report([("Datafordeleren WMS (simulated, without R46)", student)]))
+print("\n" + certs.report([("Datafordeleren WMS (simulated, without its root)", student)]))
 
 app.exitQgis()
 sys.exit(1 if failures else 0)
