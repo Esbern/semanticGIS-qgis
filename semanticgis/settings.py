@@ -8,7 +8,7 @@ from .certificates import ConnectionDialog
 from .catalogue import DEFAULT_BASE_URL
 
 SETTINGS_PREFIX = "semanticgis/"
-DEFAULT_SITE_URL = "https://semanticgis.org/Data"
+DEFAULT_SITE_URL = "https://semanticgis.xyz/data"
 
 
 class SettingsDialog(QDialog):
@@ -19,11 +19,11 @@ class SettingsDialog(QDialog):
         settings = QgsSettings()
         form = QFormLayout(self)
 
-        self.source = QLineEdit(settings.value(SETTINGS_PREFIX + "catalogue_source", DEFAULT_BASE_URL))
+        self.source = QLineEdit(settings.value(SETTINGS_PREFIX + "v2_catalogue_source", DEFAULT_BASE_URL))
         self.source.setToolTip("Base URL or local folder holding sphere-index.v1.json and services.v1.json")
         form.addRow("Catalogue source", self.source)
 
-        self.site = QLineEdit(settings.value(SETTINGS_PREFIX + "site_url", DEFAULT_SITE_URL))
+        self.site = QLineEdit(settings.value(SETTINGS_PREFIX + "v2_site_url", DEFAULT_SITE_URL))
         form.addRow("Documentation site", self.site)
 
         heading = QLabel("<b>Your keys</b>")
@@ -56,7 +56,7 @@ class SettingsDialog(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         test = buttons.addButton("Test connections…", QDialogButtonBox.ButtonRole.HelpRole)
-        test.setToolTip("Check the secure connections to Datafordeleren, Dataforsyningen and semanticgis.org "
+        test.setToolTip("Check the secure connections to Datafordeleren, Dataforsyningen and semanticgis.xyz "
                         "and see what to do about SSL errors")
         test.clicked.connect(lambda: ConnectionDialog.show(self))
         buttons.accepted.connect(self.save)
@@ -65,8 +65,8 @@ class SettingsDialog(QDialog):
 
     def save(self):
         settings = QgsSettings()
-        settings.setValue(SETTINGS_PREFIX + "catalogue_source", self.source.text().strip() or DEFAULT_BASE_URL)
-        settings.setValue(SETTINGS_PREFIX + "site_url", self.site.text().strip() or DEFAULT_SITE_URL)
+        settings.setValue(SETTINGS_PREFIX + "v2_catalogue_source", self.source.text().strip() or DEFAULT_BASE_URL)
+        settings.setValue(SETTINGS_PREFIX + "v2_site_url", self.site.text().strip() or DEFAULT_SITE_URL)
         if self.unlocked:
             try:
                 KEYS.save({i: field.text() for i, field in self.keys.items()}, self.encrypt.isChecked())

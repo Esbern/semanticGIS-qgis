@@ -38,7 +38,7 @@ SERVERS = [
     ("Datafordeleren WFS", "https://wfs.datafordeler.dk/"),
     ("Datafordeleren WCS", "https://wcs.datafordeler.dk/"),
     ("Dataforsyningen", "https://api.dataforsyningen.dk/"),
-    ("semanticgis.org (catalogue)", "https://semanticgis.org/"),
+    ("semanticgis.xyz (v2 test catalogue)", "https://semanticgis.xyz/"),
 ]
 PUBLIC_ISSUERS = ("Sectigo Limited", "Let's Encrypt", "Internet Security Research Group", "The USERTRUST Network",
                   "DigiCert Inc", "GlobalSign nv-sa", "Google Trust Services", "Amazon", "Microsoft Corporation")

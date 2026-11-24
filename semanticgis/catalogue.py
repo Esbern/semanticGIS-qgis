@@ -4,7 +4,7 @@ Two published JSON files make up the catalogue:
   sphere-index.v1.json  spheres, twigs, leaves (with twig memberships) and threads
   services.v1.json      datasets per leaf and their checked OGC/download services
 
-Both are fetched from a base URL (default: semanticgis.org) or read from a local folder,
+Both are fetched from a base URL (default: semanticgis.xyz, the v2 test site) or read from a local folder,
 and cached so the plugin also works offline. This module has no QGIS imports so it can
 be tested without QGIS.
 """
@@ -14,7 +14,7 @@ import os
 import urllib.request
 from dataclasses import dataclass, field
 
-DEFAULT_BASE_URL = "https://semanticgis.org/Data/assets/"
+DEFAULT_BASE_URL = "https://semanticgis.xyz/data/assets/"   # the v2 test site
 INDEX_FILE = "sphere-index.v1.json"
 SERVICES_FILE = "services.v1.json"
 MIN_INDEX_VERSION = (0, 4)

@@ -35,6 +35,8 @@ def repositories():
 
 expect("channel of 0.7.2", channel_of("0.7.2"), "stable")
 expect("channel of 0.8.0-dev1", channel_of("0.8.0-dev1"), "dev")
+expect("channel of 0.9.0-dev1", channel_of("0.9.0-dev1"), "v2")
+expect("a v2 test version adds only v2", (register("0.9.0-dev1"), repositories().get("SemanticGIS (v2 test)"), "SemanticGIS (dev)" in repositories()), (True, CHANNELS["v2"][1], False))
 expect("first start adds stable", register("0.7.2"), True)
 expect("listed for QGIS", repositories().get("SemanticGIS"), CHANNELS["stable"][1])
 expect("second start adds nothing", register("0.7.2"), False)

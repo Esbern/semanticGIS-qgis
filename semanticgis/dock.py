@@ -78,7 +78,7 @@ def settings_value(key, default=""):
 
 class SemanticGisDock(QDockWidget):
     def __init__(self, iface, parent=None):
-        super().__init__("SemanticGIS", parent)
+        super().__init__("SemanticGIS v2 (test)", parent)
         self.iface = iface
         self.catalogue = None
         self._layer_tasks = set()  # keep Python references until tasks finish
@@ -144,8 +144,8 @@ class SemanticGisDock(QDockWidget):
     # -- catalogue -----------------------------------------------------------------
 
     def reload(self):
-        source = settings_value("catalogue_source", DEFAULT_BASE_URL) or DEFAULT_BASE_URL
-        cache_dir = os.path.join(QgsApplication.qgisSettingsDirPath(), "semanticgis", "cache")
+        source = settings_value("v2_catalogue_source", DEFAULT_BASE_URL) or DEFAULT_BASE_URL
+        cache_dir = os.path.join(QgsApplication.qgisSettingsDirPath(), "semanticgis", "cache-v2")
         self.status.setText(f"Loading catalogue from {source}…")
 
         def task_function(task):
@@ -666,12 +666,12 @@ class SemanticGisDock(QDockWidget):
 
     @staticmethod
     def page_url(path):
-        """URL of a vault path on the published site (Quartz turns spaces into hyphens).
+        """URL of a vault path on the published site (Quartz 5 turns spaces into hyphens and lowercases every address).
         Absolute URLs (e.g. Datafordeleren's own pages) are returned as they are."""
         if path.startswith(("http://", "https://")):
             return path
-        site = (settings_value("site_url", DEFAULT_SITE_URL) or DEFAULT_SITE_URL).rstrip("/")
-        return site + "/" + path.lstrip("/").replace(" ", "-")
+        site = (settings_value("v2_site_url", DEFAULT_SITE_URL) or DEFAULT_SITE_URL).rstrip("/")
+        return site + "/" + path.lstrip("/").replace(" ", "-").lower()
 
     def _open_page(self, path):
         QDesktopServices.openUrl(QUrl(self.page_url(path)))
