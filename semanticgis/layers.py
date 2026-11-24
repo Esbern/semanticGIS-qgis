@@ -132,6 +132,11 @@ def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS, filter
         return wms_uri(url, service.layer_name, pick_crs(check.get("crs"), preferred_crs)), "wms"
     if service.type == "wmts":
         return wmts_uri(url, service.layer_name, check.get("tile_matrix_sets"), check.get("formats"), preferred_crs), "wms"
+    if service.type == "file":
+        from .access import KEYS
+        from .share import LINK, source
+
+        return source(KEYS.key(LINK), service.url), "gdal" if service.kind == "raster" else "ogr"
     raise ValueError(f"Service type {service.type} cannot be loaded as a layer")
 
 
@@ -145,7 +150,7 @@ def build_layer(service, dataset, only_in_view=True, preferred_crs=PREFERRED_CRS
 
     uri, provider = layer_source(service, only_in_view, preferred_crs, filtered)
     name = f"{dataset.title} — {service.label}" if service.label != dataset.title else dataset.title
-    layer = QgsVectorLayer(uri, name, provider) if provider == "WFS" else QgsRasterLayer(uri, name, provider)
+    layer = QgsVectorLayer(uri, name, provider) if provider in ("WFS", "ogr") else QgsRasterLayer(uri, name, provider)
     if not layer.isValid():
         raise LayerError(layer, f"The {service.type.upper()} layer could not be loaded")
     return layer
@@ -214,9 +219,28 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
         "access": service.access or "",
     }.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)
+    _apply_meanings(layer, service, dataset)
     return _add_to_group(layer, leaf.title if leaf else (group_name or "Datasets"))
 
 
+def _apply_meanings(layer, service, dataset):
+    """Name each column after the variable it holds (as field alias; the field names stay), whatever service it came from."""
+    from qgis.core import QgsVectorLayer
+
+    from .catalogue_v2 import columns_of
+
+    columns = columns_of(dataset, service) if isinstance(layer, QgsVectorLayer) else {}
+    used = {}
+    for i, f in enumerate(layer.fields()) if columns else ():
+        variable = VARIABLES.get(columns.get(f.name()))
+        if variable is not None and not layer.attributeAlias(i):
+            layer.setFieldAlias(i, f"{variable.title} [{f.name()}]")
+            used[f.name()] = variable.id
+    if used:
+        layer.setCustomProperty(PROPERTY_PREFIX + "variables", ",".join(f"{k}={v}" for k, v in used.items()))
+
+
+VARIABLES = {}   # variable id -> Variable, of the loaded catalogue (set by the panel)
 BASEMAP_GROUP = "Basemaps"
 
 

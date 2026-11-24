@@ -14,11 +14,13 @@ import os
 import urllib.request
 from dataclasses import dataclass, field
 
+from .catalogue_v2 import CATALOGUE_FILE_V2, INDEX_FILE_V2, as_v1, extend
+
 DEFAULT_BASE_URL = "https://semanticgis.xyz/data/assets/"   # the v2 test site
 INDEX_FILE = "sphere-index.v1.json"
 SERVICES_FILE = "services.v1.json"
 MIN_INDEX_VERSION = (0, 4)
-LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz", "wcs")
+LOADABLE_TYPES = ("wfs", "wms", "wmts", "xyz", "wcs", "file")
 ACRONYMS = {"ict", "crs"}
 
 
@@ -186,6 +188,9 @@ class Dataset:
     attribution: Attribution | None = None
     realisation: str | None = None     # the realisation note that names this dataset (sgis_id)
     subsets: dict | None = None        # {"attribute", "values": [{"value", "label"}]}: the dataset, filtered
+    link_status: dict = field(default_factory=dict)   # v2: leaf id -> reviewed | from-variables | from-guess | unreviewed
+    versions: list = field(default_factory=list)      # v2
+    share: list = field(default_factory=list)         # v2: snapshots on the data share
     derivation: dict | None = None     # {"from", "criteria", "legal_basis", "as_of", "from_dataset", "from_title"}
 
     @property
@@ -287,6 +292,7 @@ class Catalogue:
                 f"{'.'.join(map(str, MIN_INDEX_VERSION))} or later (twig memberships)."
             )
         self.version = index.get("version")
+        self.variables, self.leaf_variables = {}, {}   # v2
         self.services_checked = services.get("checked")
         self.has_services = bool(services)
 
@@ -477,6 +483,10 @@ def load_catalogue(source=DEFAULT_BASE_URL, cache_dir=None, timeout=30):
             texts[SERVICES_FILE] = _read(where, SERVICES_FILE, timeout)
         except (OSError, ValueError):
             texts[SERVICES_FILE] = None
+        try:                                   # v2 files: both or neither
+            texts.update({name: _read(where, name, timeout) for name in (INDEX_FILE_V2, CATALOGUE_FILE_V2)})
+        except (OSError, ValueError):
+            texts.update({INDEX_FILE_V2: None, CATALOGUE_FILE_V2: None})
         return texts
 
     from_cache = False
@@ -489,7 +499,14 @@ def load_catalogue(source=DEFAULT_BASE_URL, cache_dir=None, timeout=30):
         from_cache = True
 
     services_text = texts[SERVICES_FILE]
-    catalogue = Catalogue(json.loads(texts[INDEX_FILE]), json.loads(services_text) if services_text else {})
+    index, services = json.loads(texts[INDEX_FILE]), json.loads(services_text) if services_text else {}
+    v2 = [json.loads(texts[n]) for n in (INDEX_FILE_V2, CATALOGUE_FILE_V2)] if texts[INDEX_FILE_V2] else None
+    if v2:
+        index, services = as_v1(index, services, *v2)
+    catalogue = Catalogue(index, services)
+    if v2:
+        extend(catalogue, *v2, make_service)
+    catalogue.is_v2 = bool(v2)
     catalogue.has_services = services_text is not None
 
     if cache_dir and not from_cache:

@@ -12,7 +12,8 @@ the QGIS authentication database (unlocked with the QGIS master password).
 from qgis.core import QgsApplication, QgsNetworkAccessManager, QgsSettings
 from qgis.PyQt.QtCore import QUrlQuery
 
-from .catalogue import BUILTIN_PROFILES
+from .catalogue import BUILTIN_PROFILES, AccessProfile
+from .catalogue_v2 import SHARE
 
 KEY_PREFIX = "semanticgis/keys/"
 KEY_IDS = "semanticgis/key_ids"            # profiles with a stored key (the encrypted store cannot list)
@@ -20,9 +21,16 @@ ENCRYPTED = "semanticgis/keys_encrypted"
 LEGACY_SETTINGS = {"dataforsyningen": "semanticgis/dataforsyningen_token", "datafordeler": "semanticgis/datafordeler_api_key"}
 
 
+# The data share: a link and a password instead of a key in the URL (no hosts, so nothing is added to requests).
+SHARE_PROFILES = {
+    SHARE + "-link": AccessProfile(SHARE + "-link", "RUC data share: link", "", [], page="/Access Profiles/ruc-data-share"),
+    SHARE: AccessProfile(SHARE, "RUC data share: password", "", [], page="/Access Profiles/ruc-data-share"),
+}
+
+
 class KeyStore:
     def __init__(self):
-        self.profiles = dict(BUILTIN_PROFILES)
+        self.profiles = {**BUILTIN_PROFILES, **SHARE_PROFILES}
         self._keys = {}
         self.loaded = False
         self._preprocessor = None
@@ -32,6 +40,7 @@ class KeyStore:
     def set_profiles(self, profiles):
         self.profiles = dict(BUILTIN_PROFILES)
         self.profiles.update(profiles or {})
+        self.profiles.update(SHARE_PROFILES)
 
     @staticmethod
     def encrypted():
@@ -62,6 +71,7 @@ class KeyStore:
             self._keys = {i: settings.value(KEY_PREFIX + i, "") or "" for i in self._stored_ids()}
         self._keys = {i: k for i, k in self._keys.items() if k}
         self.loaded = True
+        self._open_share()
         return True
 
     def save(self, keys, encrypted):
@@ -85,24 +95,35 @@ class KeyStore:
         settings.setValue(ENCRYPTED, bool(encrypted))
         self._keys = kept
         self.loaded = True
+        self._open_share()
 
     def use(self, keys):
         """Use these keys (profile id -> key) in this session without storing them (scripts, tests)."""
         self._keys.update({i: k for i, k in keys.items() if k})
         self.loaded = True
+        self._open_share()
 
     # The .env names of semanticGIS-code, for scripts and tests.
-    ENV = {"datafordeler": "DATAFORDELER_API_KEY", "dataforsyningen": "DATAFORSYNINGEN_TOKEN", "carto": "CARTO_API_KEY"}
+    ENV = {SHARE + "-link": "RUC_SHAR", SHARE: "RUC_SHAR_TOKEN", "datafordeler": "DATAFORDELER_API_KEY", "dataforsyningen": "DATAFORSYNINGEN_TOKEN", "carto": "CARTO_API_KEY"}
 
     def use_environment(self):
         import os
 
         self.use({i: os.environ.get(name, "") for i, name in self.ENV.items()})
 
+    def _open_share(self):
+        from .share import configure
+
+        configure(self._keys.get(SHARE + "-link"), self._keys.get(SHARE))
+
     def key(self, profile_id):
         return self._keys.get(profile_id, "")
 
     def has_key(self, profile_id):
+        if profile_id == SHARE:                  # usable only with both
+            from .share import base_path
+
+            return bool(self._keys.get(SHARE) and base_path(self._keys.get(SHARE + "-link")))
         return bool(self._keys.get(profile_id))
 
     # -- services ----------------------------------------------------------------------
@@ -117,6 +138,8 @@ class KeyStore:
             return None
         if not self.loaded and self.encrypted():
             return f"This service needs your {profile.title}; unlock your keys with the QGIS master password (SemanticGIS Settings)."
+        if profile.id == SHARE:
+            return "This file is on the RUC data share: give its link (https://…/s/…) and password in SemanticGIS Settings."
         where = f" Get one at {profile.signup_url}." if profile.signup_url else ""
         return f"This service needs your own {profile.title} (SemanticGIS Settings).{where}"
 
@@ -134,6 +157,8 @@ class KeyStore:
         url = request.url()
         host = url.host().lower()
         for profile in list(self.profiles.values()):
+            if not profile.hosts:
+                continue
             key = self._keys.get(profile.id)
             if not key or not profile.matches(host):
                 continue

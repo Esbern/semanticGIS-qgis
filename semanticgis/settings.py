@@ -3,7 +3,7 @@
 from qgis.core import QgsSettings
 from qgis.PyQt.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QMessageBox
 
-from .access import KEYS
+from .access import KEYS, SHARE_PROFILES
 from .certificates import ConnectionDialog
 from .catalogue import DEFAULT_BASE_URL
 
@@ -20,7 +20,7 @@ class SettingsDialog(QDialog):
         form = QFormLayout(self)
 
         self.source = QLineEdit(settings.value(SETTINGS_PREFIX + "v2_catalogue_source", DEFAULT_BASE_URL))
-        self.source.setToolTip("Base URL or local folder holding sphere-index.v1.json and services.v1.json")
+        self.source.setToolTip("Base URL or local folder holding the v1 and v2 catalogue files")
         form.addRow("Catalogue source", self.source)
 
         self.site = QLineEdit(settings.value(SETTINGS_PREFIX + "v2_site_url", DEFAULT_SITE_URL))
@@ -30,13 +30,14 @@ class SettingsDialog(QDialog):
         form.addRow(heading)
         self.unlocked = KEYS.loaded or KEYS.load(prompt=True)
         self.keys = {}
-        for profile in sorted(profiles.values(), key=lambda p: p.title.lower()):
+        for profile in sorted({**profiles, **SHARE_PROFILES}.values(), key=lambda p: p.title.lower()):
             field = QLineEdit(KEYS.key(profile.id))
-            field.setEchoMode(QLineEdit.EchoMode.Password)
+            if not profile.id.endswith("-link"):
+                field.setEchoMode(QLineEdit.EchoMode.Password)
             field.setEnabled(self.unlocked)
             hint = f"Get one at {profile.signup_url}" if profile.signup_url else ""
             field.setPlaceholderText(hint)
-            field.setToolTip("\n".join(filter(None, [f"Sent as '{profile.param}' to {', '.join(profile.hosts)}", profile.cost, hint])))
+            field.setToolTip("\n".join(filter(None, [f"Sent as '{profile.param}' to {', '.join(profile.hosts)}" if profile.hosts else "From your course: the link (https://…/s/…) and its password", profile.cost, hint])))
             form.addRow(profile.title, field)
             self.keys[profile.id] = field
 

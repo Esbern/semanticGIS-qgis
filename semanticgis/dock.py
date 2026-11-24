@@ -23,10 +23,12 @@ from qgis.PyQt.QtWidgets import (
 
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
+from .catalogue_v2 import LINK_NOTE, SHARE
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
     PREFERRED_CRS,
+    VARIABLES,
     crs_definition,
     rebind_crs,
     build_basemap_layer,
@@ -159,11 +161,14 @@ class SemanticGisDock(QDockWidget):
                 return
             self.catalogue, from_cache = result
             KEYS.set_profiles(self.catalogue.access_profiles)
+            VARIABLES.clear()
+            VARIABLES.update(self.catalogue.variables)
             self.join_button.setEnabled(bool(self.catalogue.references))
             checked = self.catalogue.services_checked or "never"
             services = f"services checked {checked}" if self.catalogue.has_services else "no services published yet"
             self.status.setText(
                 f"SemanticGIS {plugin_version()} · {len(self.catalogue.leaves)} leaves · "
+                f"{str(len(self.catalogue.variables)) + ' variables · ' if self.catalogue.is_v2 else 'v1 catalogue · '}"
                 f"{services}" + (" · offline copy" if from_cache else "")
             )
             self.status.setToolTip(f"SemanticGIS plugin {plugin_version()} · SPHERE index v{self.catalogue.version} "
@@ -248,10 +253,39 @@ class SemanticGisDock(QDockWidget):
         if dataset.derivation:
             tip += "\n" + derivation_text(dataset.derivation)
         item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), tip)
-        if not self._service_items(item, dataset, leaf_id):
+        services = self._service_items(item, dataset, leaf_id)
+        self._share_items(item, dataset, leaf_id)
+        if not services and not item.hasChildren():
             return None
         self._subset_items(item, dataset, leaf_id)
+        self._version_items(item, dataset)
         return item
+
+    def _share_items(self, parent, dataset, leaf_id=None):
+        """Files on the data share, one group per snapshot (a dataset can have 80 of them)."""
+        for s_index, snapshot in enumerate(dataset.share):
+            mark = "🔑 " if KEYS.has_key(SHARE) else "🔒 "
+            tip = f"Licence: {snapshot['licence']}" + ("\nNot an open licence: read the terms in the snapshot's README before use, and pass them on."
+                                                      if "leveringsbetingelser" in snapshot["licence"].lower() else "")
+            group = self._item(f"{mark}RUC data share, {snapshot['snapshot']} ({len(snapshot['files'])})", ("share", dataset.id, s_index, leaf_id), tip)
+            for f_index, f in enumerate(snapshot["files"]):
+                rows = f" · {f.rows:,} rows" if f.rows else ""
+                group.appendRow(self._item(f"{f.layer}{rows}", ("sharefile", dataset.id, s_index, f_index, leaf_id),
+                                           "\n".join(filter(None, [f.description, f"unit: {f.unit}" if f.unit else "", tip]))))
+            parent.appendRow(group)
+
+    def _version_items(self, parent, dataset):
+        for version in dataset.versions:
+            item = self._item(f"Version {version.label}", ("version", dataset.id, version.id), "What this version holds: its variables")
+            for vid in version.variables:
+                variable = self.catalogue.variables.get(vid)
+                if variable is not None:
+                    item.appendRow(self._item(variable.title + ("  (record)" if variable.about == "record" else ""), ("variable", vid), variable.tooltip))
+            parent.appendRow(item)
+
+    def _share_lookup(self, data):
+        dataset = self.catalogue.datasets[data[1]]
+        return self.catalogue.leaves.get(data[4]) if data[4] else None, dataset, dataset.share[data[2]]["files"][data[3]]
 
     def _subset_service(self, dataset):
         """The service a subset is loaded from: a usable WFS, where the filter runs on the server."""
@@ -307,10 +341,21 @@ class SemanticGisDock(QDockWidget):
         marker = " ★" if twig and leaf.primary_lens == twig.id else ""
         item = self._item(leaf.title + marker, ("leaf", leaf.id), leaf.question)
         self._reference_items(item, self.catalogue.references_for(leaf_id=leaf.id))
+        variables = self.catalogue.leaf_variables.get(leaf.id, [])
         for dataset in leaf.datasets:
             ds_item = self._dataset_item(dataset, leaf.id)
             if ds_item is not None:
+                mark, why = LINK_NOTE.get(dataset.link_status.get(leaf.id), ("", ""))
+                if mark:
+                    ds_item.setText(ds_item.text() + mark)
+                    ds_item.setToolTip(f"{why}\n{ds_item.toolTip()}")
                 item.appendRow(ds_item)
+        if variables:
+            group = self._item(f"Variables ({len(variables)})", ("variables", leaf.id),
+                               "What exactly is measured: datasets can be compared when they share a variable")
+            for variable in variables:
+                group.appendRow(self._item(variable.title, ("variable", variable.id), variable.tooltip))
+            item.appendRow(group)
         for register in self.catalogue.registers_for(leaf.id):
             reg_item = self._item(f"Datafordeleren: {register['title']}", ("register", register["title"]),
                                   "Services of the Datafordeleren register that realises this leaf")
@@ -505,7 +550,7 @@ class SemanticGisDock(QDockWidget):
         text = self.search.text().strip()
         if text:
             leaves = self.catalogue.search(text)
-            datasets = [d for d in self.catalogue.search_datasets(text) if self._visible_services(d)]
+            datasets = [d for d in self.catalogue.search_datasets(text) if self._visible_services(d) or d.share]
             if leaves:
                 group = self._top(f"Leaves ({len(leaves)})", "Leaves whose title or question matches", "/Leaves/")
                 for leaf in leaves:
@@ -556,6 +601,8 @@ class SemanticGisDock(QDockWidget):
             return
         if data[0] == "service":
             self.add_layer(*self._lookup(data))
+        elif data[0] == "sharefile":
+            self.add_layer(*self._share_lookup(data))
         elif data[0] == "basemap":
             self.add_basemap(self._basemap(data[1]))
         elif data[0] == "bmservice":
@@ -699,6 +746,14 @@ class SemanticGisDock(QDockWidget):
         if kind == "leaf":
             leaf = c.leaves.get(data[1])
             return leaf.path if leaf else None
+        if kind == "variables":
+            return c.leaves[data[1]].path
+        if kind == "variable":
+            return c.variables[data[1]].page
+        if kind == "version":
+            return next((v.page for v in c.datasets[data[1]].versions if v.id == data[2]), None)
+        if kind in ("share", "sharefile"):
+            return c.datasets[data[1]].page
         if kind in ("subsets", "subset"):
             dataset = c.datasets.get(data[1])
             realisation = c.realisations.get(dataset.realisation) if dataset and dataset.realisation else None
@@ -722,6 +777,8 @@ class SemanticGisDock(QDockWidget):
         kind, services = data[0], []
         if kind == "service":
             services = [self._lookup(data)[2]]
+        elif kind in ("share", "sharefile"):
+            services = [self.catalogue.datasets[data[1]].share[data[2]]["files"][0]]
         elif kind == "dataset":
             services = self.catalogue.datasets[data[1]].services
         elif kind in ("basemap", "bmservice"):
@@ -755,6 +812,10 @@ class SemanticGisDock(QDockWidget):
             menu.addAction("Copy endpoint URL", lambda: QApplication.clipboard().setText(service.endpoint))
             if service.portal and service.portal.get("page"):
                 menu.addAction(f"Show portal page ({service.portal['title']})", lambda: self._open_page(service.portal["page"]))
+        elif kind == "sharefile":
+            leaf, dataset, service = self._share_lookup(data)
+            menu.addAction("Add layer", lambda: self.add_layer(leaf, dataset, service))
+            menu.addAction("Copy attribution", lambda: self.copy_attribution(dataset.attribution, "download", dataset.title))
         elif kind in ("basemap", "bmservice"):
             basemap = self._basemap(data[1])
             service = next((s for s in basemap.services if s.id == data[2]), None) if kind == "bmservice" else None

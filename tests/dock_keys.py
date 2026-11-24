@@ -81,7 +81,7 @@ dock.rebuild()
 expect("offered under verified only", (carto_item() is not None, dock._preferred(basemap) is not None), (True, True))
 
 dialog = SettingsDialog(dock.catalogue.access_profiles)
-expect("settings fields", sorted(dialog.keys), ["carto", "datafordeler", "dataforsyningen"])
+expect("settings fields", sorted(dialog.keys), ["carto", "datafordeler", "dataforsyningen", "ruc-data-share", "ruc-data-share-link"])
 expect("settings shows key", dialog.keys["carto"].text(), "session-only")
 
 dhm = find(dock.model.invisibleRootItem(), lambda i: (i.data(ROLE) or ("",))[0] == "service" and "datafordeler" in (i.data(ROLE)[2] or ""))
