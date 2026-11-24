@@ -23,6 +23,7 @@ from qgis.PyQt.QtWidgets import (
 
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
+from . import legends
 from .catalogue_v2 import LINK_NOTE, SHARE
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
@@ -160,6 +161,8 @@ class SemanticGisDock(QDockWidget):
                 self.iface.messageBar().pushMessage("SemanticGIS", message, Qgis.MessageLevel.Critical)
                 return
             self.catalogue, from_cache = result
+            legends.LEGENDS.clear()
+            legends.LEGENDS.update(getattr(self.catalogue, "legends", {}))
             KEYS.set_profiles(self.catalogue.access_profiles)
             VARIABLES.clear()
             VARIABLES.update(self.catalogue.variables)
@@ -716,7 +719,13 @@ class SemanticGisDock(QDockWidget):
             self.iface.messageBar().pushMessage("SemanticGIS", problem, Qgis.MessageLevel.Warning, 10)
         return bool(problem)
 
-    def add_layer(self, leaf, dataset, service):
+    def _build_with_legend(self, service, dataset, only_in_view, preferred, legend, locale):
+        layer = build_layer(service, dataset, only_in_view, preferred)
+        if service.type == "file" and service.kind != "raster":
+            legends.prepare(layer, dataset, service, legend, locale)      # here, not on the main thread: it reads the network
+        return layer
+
+    def add_layer(self, leaf, dataset, service, legend=None):
         if self._key_missing(service):
             return
         if service.type == "download":   # opened in the browser, so the key goes in the link
@@ -724,13 +733,14 @@ class SemanticGisDock(QDockWidget):
             return
         preferred = QgsProject.instance().crs().authid() or PREFERRED_CRS
         only_in_view = self.only_in_view.isChecked()
+        locale = QgsApplication.locale()
         owner_title = (self.catalogue.owners.get(dataset.page.strip("/").split("/")[1], None)
                        if dataset.page.startswith("/Datasets by Owner/") else dataset.owner)
         context = f" ({leaf.title})" if leaf else ""
         self._run_layer_task(
             f"{dataset.title}{context}",
-            lambda: build_layer(service, dataset, only_in_view, preferred),
-            lambda layer: place_layer(layer, service, leaf, dataset, owner_title),
+            lambda: self._build_with_legend(service, dataset, only_in_view, preferred, legend, locale),
+            lambda layer: place_layer(layer, service, leaf, dataset, owner_title, legend, locale),
         )
 
     @staticmethod
@@ -815,6 +825,27 @@ class SemanticGisDock(QDockWidget):
         if profiles:
             menu.addSeparator()
 
+    def _legend_menu(self, menu, leaf, dataset, service):
+        """'Add layer with legend ▸' for a file with a column whose code scheme has a legend."""
+        found = legends.column_for(dataset, service)
+        if not found:
+            return
+        legend, _ = found
+        sub = menu.addMenu("Add layer with legend")
+        sub.setToolTip(f"{legend['title']} ({legends.ORIGIN[legend['origin']]})")
+        seen = set()
+        for c in legends.choices(legend, None, QgsApplication.locale()):
+            if c.title not in seen:                  # polygons and lines have each their style, with one name
+                seen.add(c.title)
+                sub.addAction(c.title, lambda c=c: self.add_layer(leaf, dataset, service, self._legend_id(legend, c, service)))
+        sub.addSeparator()
+        sub.addAction("Show the legend's web page", lambda: self._open_page(legend["page"]))
+
+    @staticmethod
+    def _legend_id(legend, choice, service):
+        """The id to ask for: for a style, any style in the same language (the layer's geometry decides which)."""
+        return choice.id if not choice.href else "lang:" + choice.lang
+
     def context_menu(self, position):
         index = self.tree.indexAt(position)
         data = index.data(ROLE) if index.isValid() else None
@@ -837,6 +868,7 @@ class SemanticGisDock(QDockWidget):
         elif kind == "sharefile":
             leaf, dataset, service = self._share_lookup(data)
             menu.addAction("Add layer", lambda: self.add_layer(leaf, dataset, service))
+            self._legend_menu(menu, leaf, dataset, service)
             menu.addAction("Copy attribution", lambda: self.copy_attribution(dataset.attribution, "download", dataset.title))
         elif kind in ("basemap", "bmservice"):
             basemap = self._basemap(data[1])

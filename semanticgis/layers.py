@@ -202,7 +202,7 @@ def _add_to_group(layer, group_name):
     return layer
 
 
-def place_layer(layer, service, leaf, dataset, group_name=None):
+def place_layer(layer, service, leaf, dataset, group_name=None, legend=None, locale="en"):
     """Tag the layer with its SPHERE provenance and add it under SemanticGIS > <leaf or owner>.
 
     `leaf` may be None for a dataset browsed by owner. Main thread only.
@@ -220,6 +220,12 @@ def place_layer(layer, service, leaf, dataset, group_name=None):
     }.items():
         layer.setCustomProperty(PROPERTY_PREFIX + key, value)
     _apply_meanings(layer, service, dataset)
+    from qgis.core import QgsVectorLayer
+
+    if isinstance(layer, QgsVectorLayer) and service.type == "file":
+        from . import legends
+
+        legends.apply(layer, dataset, service, legend, locale)
     return _add_to_group(layer, leaf.title if leaf else (group_name or "Datasets"))
 
 

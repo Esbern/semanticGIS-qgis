@@ -5,7 +5,7 @@ qgisMaximumVersion=4.99
 supportsQt6=True
 description=Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services
 about=SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.
-version=0.9.0-dev4
+version=0.9.0-dev5
 author=Esbern Holmes
 email=holmes@ruc.dk
 homepage=https://semanticgis.org
@@ -17,7 +17,8 @@ tags=urban design,building heights,dhm,geodanmark,blender,wkt,copernicus,area of
 experimental=True
 hasProcessingProvider=yes
 deprecated=False
-changelog=0.9.0-dev4 The tooltip of a service or file marked 🔒 says who can get access, what it costs and how.
+changelog=0.9.0-dev5 Standard symbology: files on the data share get the publisher's own legend when one of their columns uses a code scheme that has one (GEUS's surface geology maps 1:25 000 and 1:200 000, the geomorphological map, Bornholm); right-click, Add layer with legend, for Danish, English, colours only or none.
+    0.9.0-dev4 The tooltip of a service or file marked 🔒 says who can get access, what it costs and how.
     0.9.0-dev3 The spheres and twigs come from the v2 catalogue: one Soil twig, its leaves under headings (Texture, Organic matter and lime, Soil types and classification). Organisations have their proper names.
     0.9.0-dev2 Reads the v2 catalogue (and still the v1 one): 75 leaves, several twigs per leaf; variables under each leaf and version, with scale and reference system; leaf links nobody has reviewed are flagged (⚑), those resting on guessed columns marked (?); files on the RUC data share load directly (give the link and password in Settings; the password is never written into layers or projects); columns are named after their variable, also in WFS layers. Includes 0.7.20.
     0.9.0-dev1 First version of the v2 test line, based on 0.7.19. Reads the catalogue from the test site semanticgis.xyz and opens its pages there; still the v1 catalogue format. Own update channel (v2.xml). For testing in a separate QGIS profile only.
