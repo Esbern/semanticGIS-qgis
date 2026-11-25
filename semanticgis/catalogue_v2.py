@@ -113,6 +113,8 @@ def extend(catalogue, index2, catalogue2, make_service):
             continue
         dataset.link_status = {l["leaf"]: l["status"] for l in d["leaf_links"]}
         dataset.versions = [Version(v["id"], v.get("label") or v["id"], v["page"], v["variables"], v["meanings"]) for v in d["versions"]]
+        # a series too long for the tree (a file per day for years) is fetched by one of this plugin's own tools
+        dataset.tools = [t for t in d.get("tools") or [] if str(t.get("algorithm", "")).startswith("semanticgis:")]
         dataset.share = []
         for s in d.get("share") or []:
             files = []

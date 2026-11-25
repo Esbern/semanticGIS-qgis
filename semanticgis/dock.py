@@ -266,6 +266,8 @@ class SemanticGisDock(QDockWidget):
         item = self._item(dataset.title, ("dataset", dataset.id, leaf_id), tip)
         services = self._service_items(item, dataset, leaf_id)
         self._share_items(item, dataset, leaf_id)
+        for number, tool in enumerate(getattr(dataset, "tools", [])):
+            item.appendRow(self._item(f"⚙ {tool['title']}", ("tool", dataset.id, number), tool.get("description", "") + "\nDouble-click opens the tool."))
         if not services and not item.hasChildren():
             return None
         self._subset_items(item, dataset, leaf_id)
@@ -646,6 +648,8 @@ class SemanticGisDock(QDockWidget):
             self.add_layer(*self._lookup(data))
         elif data[0] == "sharefile":
             self.add_layer(*self._share_lookup(data))
+        elif data[0] == "tool":
+            self.open_tool(self.catalogue.datasets[data[1]].tools[data[2]])
         elif data[0] == "basemap":
             self.add_basemap(self._basemap(data[1]))
         elif data[0] == "bmservice":
@@ -663,6 +667,15 @@ class SemanticGisDock(QDockWidget):
         elif data[0] == "refgeom":
             source = self.catalogue.references[data[1]]
             self.add_reference_layer(source, source.geometries[data[2]])
+
+    def open_tool(self, tool):
+        """Open the dialog of one of the plugin's Processing tools."""
+        if QgsApplication.processingRegistry().algorithmById(tool["algorithm"]) is None:
+            self.iface.messageBar().pushMessage("SemanticGIS", f"This plugin version does not have the tool '{tool['title']}'. Update the plugin, "
+                                                "and check that the Processing plugin is on.", Qgis.MessageLevel.Warning)
+            return None
+        import processing
+        return processing.execAlgorithmDialog(tool["algorithm"], dict(tool.get("parameters") or {}))
 
     def _run_layer_task(self, title, build, place):
         """Build a layer in a background task (it talks to a server), add it on the main thread."""
@@ -810,7 +823,7 @@ class SemanticGisDock(QDockWidget):
             return c.variables[data[1]].page
         if kind == "version":
             return next((v.page for v in c.datasets[data[1]].versions if v.id == data[2]), None)
-        if kind in ("share", "sharefile"):
+        if kind in ("share", "sharefile", "tool"):
             return c.datasets[data[1]].page
         if kind in ("subsets", "subset"):
             dataset = c.datasets.get(data[1])
