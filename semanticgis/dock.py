@@ -9,6 +9,7 @@ from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
+    QComboBox,
     QDockWidget,
     QHBoxLayout,
     QLabel,
@@ -24,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
 from . import legends
-from .catalogue_v2 import LINK_NOTE, SHARE
+from .catalogue_v2 import LINK_NOTE, SHARE, around, concerns
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
@@ -108,6 +109,22 @@ class SemanticGisDock(QDockWidget):
         options.clicked.connect(self.open_settings)
         top.addWidget(options)
         layout.addLayout(top)
+
+        areas = QHBoxLayout()
+        self.area, self.area_around = QComboBox(), QComboBox()
+        self.area.setToolTip("Show data about this area and the places inside it")
+        self.area_around.setToolTip("Also show data about the areas around it, as far as this one (for example OpenStreetMap, which is about the world)")
+        areas.addWidget(QLabel("Area"))
+        areas.addWidget(self.area, 1)
+        areas.addWidget(QLabel("and up to"))
+        areas.addWidget(self.area_around, 1)
+        self.area_row = QWidget()
+        areas.setContentsMargins(0, 0, 0, 0)
+        self.area_row.setLayout(areas)
+        self.area_row.setVisible(False)                     # until a catalogue with areas is read
+        layout.addWidget(self.area_row)
+        self.area.currentIndexChanged.connect(self._area_chosen)
+        self.area_around.currentIndexChanged.connect(self._around_chosen)
 
         self.verified_only = QCheckBox("Verified services only")
         self.verified_only.setChecked(True)
@@ -258,6 +275,8 @@ class SemanticGisDock(QDockWidget):
         return bool(services)
 
     def _dataset_item(self, dataset, leaf_id=None):
+        if not self._in_area(dataset):
+            return None
         preferred = self._preferred(dataset)
         tip = dataset.page + (f"\nDouble-click adds the preferred service ({preferred.type.upper()}"
                               f"{' · ' + preferred.portal['title'] if preferred.portal else ''})" if preferred else "")
@@ -587,15 +606,66 @@ class SemanticGisDock(QDockWidget):
             lambda layer: place_basemap_layer(layer, basemap, service),
         )
 
+    # -- areas: what the datasets are about ------------------------------------------
+
+    def _fill_areas(self):
+        """The site's list of areas, as a tree; the user's choice is kept (Denmark to begin with)."""
+        known = getattr(self.catalogue, "areas", None) or {}
+        self.area_row.setVisible(bool(known))
+        if getattr(self, "_areas_shown", None) is known:
+            return
+        self._areas_shown = known
+        wanted = settings_value("v2_area", "denmark")
+        self.area.blockSignals(True)
+        self.area.clear()
+        self.area.addItem("All areas", "")
+
+        def add(parent, depth):
+            for key, a in known.items():
+                if a.get("parent") == parent:
+                    self.area.addItem("    " * depth + a["title"], key)
+                    add(key, depth + 1)
+        add(None, 0)
+        self.area.setCurrentIndex(max(0, self.area.findData(wanted)))
+        self.area.blockSignals(False)
+        self._fill_around()
+
+    def _fill_around(self):
+        known, chosen = getattr(self.catalogue, "areas", None) or {}, self.area.currentData()
+        wanted = settings_value("v2_area_around", "world")
+        self.area_around.blockSignals(True)
+        self.area_around.clear()
+        self.area_around.addItem("only this area", "")
+        for key in around(known, chosen):
+            self.area_around.addItem(known[key]["title"], key)
+        at = self.area_around.findData(wanted)
+        self.area_around.setCurrentIndex(at if at >= 0 else self.area_around.count() - 1)
+        self.area_around.setEnabled(self.area_around.count() > 1)
+        self.area_around.blockSignals(False)
+
+    def _area_chosen(self):
+        QgsSettings().setValue(SETTINGS_PREFIX + "v2_area", self.area.currentData())
+        self._fill_around()
+        self.rebuild()
+
+    def _around_chosen(self):
+        QgsSettings().setValue(SETTINGS_PREFIX + "v2_area_around", self.area_around.currentData())
+        self.rebuild()
+
+    def _in_area(self, dataset):
+        known = getattr(self.catalogue, "areas", None)
+        return not known or concerns(known, getattr(dataset, "scope", None), self.area.currentData(), self.area_around.currentData())
+
     def rebuild(self):
         self.model.clear()
         if not self.catalogue:
             return
+        self._fill_areas()
         root = self.model.invisibleRootItem()
         text = self.search.text().strip()
         if text:
             leaves = self.catalogue.search(text)
-            datasets = [d for d in self.catalogue.search_datasets(text) if self._visible_services(d) or d.share]
+            datasets = [d for d in self.catalogue.search_datasets(text) if (self._visible_services(d) or d.share) and self._in_area(d)]
             if leaves:
                 group = self._top(f"Leaves ({len(leaves)})", "Leaves whose title or question matches", "/Leaves/")
                 for leaf in leaves:

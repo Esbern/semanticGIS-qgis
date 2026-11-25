@@ -96,6 +96,7 @@ def extend(catalogue, index2, catalogue2, make_service):
     catalogue.registers = index2.get("registers", {})      # initiative: its schema and its datasets, one per class
     catalogue.flat = bool(catalogue.registers)
     catalogue.redirects = index2.get("redirects", {})
+    catalogue.areas = index2.get("areas", {})              # published on the site; the list in the panel's heading
     catalogue.legends = index2.get("legends", {})
     catalogue.access_paths = index2.get("access_paths", {})
     catalogue.leaf_variables = {}
@@ -114,6 +115,7 @@ def extend(catalogue, index2, catalogue2, make_service):
         dataset.link_status = {l["leaf"]: l["status"] for l in d["leaf_links"]}
         dataset.versions = [Version(v["id"], v.get("label") or v["id"], v["page"], v["variables"], v["meanings"]) for v in d["versions"]]
         # a series too long for the tree (a file per day for years) is fetched by one of this plugin's own tools
+        dataset.scope = (d.get("scope") or {}).get("area")
         dataset.tools = [t for t in d.get("tools") or [] if str(t.get("algorithm", "")).startswith("semanticgis:")]
         dataset.share = []
         for s in d.get("share") or []:
@@ -125,6 +127,24 @@ def extend(catalogue, index2, catalogue2, make_service):
                 service.unit, service.rows = f.get("unit"), f.get("rows")
                 files.append(service)
             dataset.share.append({"snapshot": s["snapshot"], "licence": s.get("licence") or "", "files": files})
+
+
+def around(areas, area):
+    """The areas that hold this one, from the nearest to the largest."""
+    out = []
+    while area in areas and areas[area].get("parent"):
+        area = areas[area]["parent"]
+        out.append(area)
+    return out
+
+
+def concerns(areas, scope, chosen, up_to=None):
+    """Is a dataset about `scope` wanted by someone who chose an area and the areas around it up to `up_to`?
+    Data about the area, about places inside it, and about the areas around it as far as asked for; data whose area is not known are always shown."""
+    if not chosen or chosen not in areas or not scope or scope not in areas or scope == chosen or chosen in around(areas, scope):
+        return True
+    chain = around(areas, chosen)
+    return scope in (chain[:chain.index(up_to) + 1] if up_to in chain else [])
 
 
 def columns_of(dataset, service):
