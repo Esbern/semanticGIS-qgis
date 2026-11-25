@@ -60,7 +60,7 @@ def plugin_entry(meta, tag, file_name, download_url):
         "uploaded_by": meta["author"],
         "create_date": now,
         "update_date": now,
-        "experimental": meta.get("experimental", "False"),
+        "experimental": "False",       # QGIS's Upgrade and Upgrade All skip experimental plugins; the channel itself is for testers
         "deprecated": meta.get("deprecated", "False"),
         "tracker": meta["tracker"],
         "repository": meta["repository"],
