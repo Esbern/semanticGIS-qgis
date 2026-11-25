@@ -17,7 +17,7 @@ tags=urban design,building heights,dhm,geodanmark,blender,wkt,copernicus,area of
 experimental=True
 hasProcessingProvider=yes
 deprecated=False
-changelog=0.9.0-dev9 Follows the pages moved to Inner workings; Organisations no longer lists Datafordeleren's registers.
+changelog=0.9.0-dev9 Follows the pages moved to Inner workings (Methods is no longer a way in); Organisations no longer lists Datafordeleren's registers.
     0.9.0-dev8 New tool: Line density (Raster analysis): how many vessels or lines cross each cell; with EPSG:3035 and 1000 m the cells are those of HELCOM's shipping density. AIS days now lies under Data access.
     0.9.0-dev7 New tool: AIS days (Processing Toolbox › SemanticGIS): choose a date, area and ship types; the day is streamed from the source, cleaned and joined into vessel lines, ready for the Temporal Controller. Datasets with a file per day can open such a tool from the panel (⚙).
     0.9.0-dev6 The v2 structure: Registers (one dataset per class) and Organisations instead of collections and owner folders; years of a series are versions of one dataset; links follow the moved pages.

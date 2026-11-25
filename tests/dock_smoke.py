@@ -63,7 +63,8 @@ print("SPHERE:", [c.text() for c in children(tops["SPHERE"])])
 print("Reference Framework:", [c.text() for c in children(tops["Reference Framework"])])
 print("Classical:", [c.text() for c in children(tops["Classical Classifications"])],
       "| INSPIRE themes:", children(tops["Classical Classifications"])[0].rowCount())
-print("Methods:", [c.text() for c in children(tops["Methods"])])
+expect_no_methods = "Methods" not in tops
+print("Methods is not a way in:", expect_no_methods)
 print("Registers:", [c.text() for c in children(tops["Registers"])], "→",
       len(children(children(tops["Registers"])[0])), "datasets in the first")
 print("Owners:", tops["Organisations"].rowCount(), "e.g.", [c.text() for c in children(tops["Organisations"])][:3])

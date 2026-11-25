@@ -612,7 +612,7 @@ class SemanticGisDock(QDockWidget):
             return
         for branch in (
             self._classical_branch,
-            self._methods_branch,
+            *(() if getattr(self.catalogue, "flat", False) else (self._methods_branch,)),      # v2: methods are inner workings
             self._collections_branch,
             self._owners_branch,
             self._sphere_branch,
