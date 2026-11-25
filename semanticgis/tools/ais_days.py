@@ -75,8 +75,8 @@ class AisDays(QgsProcessingAlgorithm):
 
     def name(self): return "aisdays"
     def displayName(self): return "AIS days: vessel movements as lines"
-    def group(self): return "Get data"
-    def groupId(self): return "getdata"
+    def group(self): return "Data access"
+    def groupId(self): return "dataaccess"
     def createInstance(self): return AisDays()
 
     def shortHelpString(self):
