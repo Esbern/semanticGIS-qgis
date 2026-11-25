@@ -424,7 +424,7 @@ class Catalogue:
         groups = {}
         for dataset in self.datasets.values():
             if getattr(self, "flat", False):          # v2: the owner is a role, not a folder
-                if dataset.owner:
+                if dataset.owner in self.organisations:      # not Datafordeleren's registers
                     groups.setdefault(dataset.owner, []).append(dataset)
                 continue
             parts = dataset.page.strip("/").split("/")
