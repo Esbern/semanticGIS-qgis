@@ -56,7 +56,7 @@
     <uploaded_by>Esbern Holmes</uploaded_by>
     <create_date>2026-11-25T19:43:01Z</create_date>
     <update_date>2026-11-25T19:43:01Z</update_date>
-    <experimental>True</experimental>
+    <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
     <repository>https://github.com/Esbern/semanticGIS-qgis</repository>
