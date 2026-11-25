@@ -444,7 +444,7 @@ class SemanticGisDock(QDockWidget):
         return top
 
     def _methods_branch(self):
-        top = self._top("Collection Methods", "How the data was produced: register, field measurement, remote sensing, modelled, volunteered, cartographic", "/Collection Methods/")
+        top = self._top("Methods", "How the data was produced: register, field measurement, remote sensing, modelled, volunteered, cartographic", "/Collection Methods/")
         by_method = self.catalogue.realisations_by_method()
         for method in self.catalogue.collection_methods:
             rels = sorted(by_method.get(method["id"], []), key=lambda r: r.get("dataset", "").lower())
@@ -460,7 +460,23 @@ class SemanticGisDock(QDockWidget):
             top.appendRow(method_item)
         return top
 
+    def _registers_branch(self):
+        top = self._top("Registers", "Data that exists because of a public task: each register's datasets, one per class", "/Initiatives/index")
+        for register_id, r in sorted(self.catalogue.registers.items(), key=lambda x: x[1]["title"].lower()):
+            reg_item = self._item(r["title"], ("page", r["page"]), "Purpose and datasets")
+            for dataset_id in r["datasets"]:
+                dataset = self.catalogue.datasets.get(dataset_id)
+                ds_item = self._dataset_item(dataset) if dataset else None
+                if ds_item is not None:
+                    reg_item.appendRow(ds_item)
+            if reg_item.hasChildren():
+                reg_item.setText(f"{r['title']} ({reg_item.rowCount()})")
+            top.appendRow(reg_item)
+        return top
+
     def _collections_branch(self):
+        if getattr(self.catalogue, "flat", False):
+            return self._registers_branch()
         top = self._top("Datasets by Collection", "Register documentation (Grunddatamodellen); accessed through GraphQL and file downloads", "/Datasets by Collection/")
         if self.catalogue.datafordeler:
             df_top = self._item("Datafordeleren", ("page", "https://datafordeler.dk/dataoversigt/"),
@@ -485,7 +501,9 @@ class SemanticGisDock(QDockWidget):
         return top
 
     def _owners_branch(self):
-        top = self._top("Datasets by Owner", "Every harvested dataset, by the organisation that publishes it", "/Datasets by Owner/")
+        flat = getattr(self.catalogue, "flat", False)
+        top = (self._top("Organisations", "Datasets by the organisation that publishes them now", "/Organisations/index") if flat else
+               self._top("Datasets by Owner", "Every harvested dataset, by the organisation that publishes it", "/Datasets by Owner/"))
         groups = self.catalogue.datasets_by_owner()
         for owner in sorted(groups, key=lambda o: self.catalogue.owners.get(o, o).lower()):
             title = self.catalogue.owners.get(owner, owner)
@@ -582,7 +600,7 @@ class SemanticGisDock(QDockWidget):
                     group.appendRow(self._leaf_item(leaf))
                 root.appendRow(group)
             if datasets:
-                group = self._top(f"Datasets ({len(datasets)})", "Datasets whose title matches", "/Datasets by Owner/")
+                group = self._top(f"Datasets ({len(datasets)})", "Datasets whose title matches", "/Datasets/index")
                 for dataset in datasets:
                     ds_item = self._dataset_item(dataset)
                     if ds_item is not None:
@@ -735,7 +753,7 @@ class SemanticGisDock(QDockWidget):
         only_in_view = self.only_in_view.isChecked()
         locale = QgsApplication.locale()
         owner_title = (self.catalogue.owners.get(dataset.page.strip("/").split("/")[1], None)
-                       if dataset.page.startswith("/Datasets by Owner/") else dataset.owner)
+                       if dataset.page.startswith("/Datasets by Owner/") else self.catalogue.owners.get(dataset.owner, dataset.owner))
         context = f" ({leaf.title})" if leaf else ""
         self._run_layer_task(
             f"{dataset.title}{context}",
@@ -756,7 +774,14 @@ class SemanticGisDock(QDockWidget):
         QDesktopServices.openUrl(QUrl(self.page_url(path)))
 
     def page_for(self, data):
-        """The site page behind any node of the tree, or None."""
+        """The site page behind any node of the tree, or None. Addresses from before v2 are replaced by today's."""
+        page = self._page_for(data)
+        moved = getattr(self.catalogue, "redirects", {}) if self.catalogue else {}
+        if page and moved:
+            page = moved.get(page) or moved.get(page.rstrip("/") + "/index") or page
+        return page
+
+    def _page_for(self, data):
         if not data or not self.catalogue:
             return None
         kind, c = data[0], self.catalogue
@@ -769,7 +794,8 @@ class SemanticGisDock(QDockWidget):
         if kind in ("method", "derived"):
             return f"/Collection Methods/{data[1]}"
         if kind == "owner":
-            return f"/Datasets by Owner/{data[1]}/"
+            o = getattr(c, "organisations", {}).get(data[1]) or {}
+            return o.get("page") or f"/Datasets by Owner/{data[1]}/"
         if kind == "sphere":
             return next((s.path for s in c.spheres if s.id == data[1]), None)
         if kind in ("twig", "heading"):

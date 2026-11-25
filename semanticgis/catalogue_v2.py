@@ -92,6 +92,10 @@ def extend(catalogue, index2, catalogue2, make_service):
         k: Variable(k, v["title"], v.get("about", "world"), v.get("scale") or "", v.get("value_type") or "", v.get("reference") or {},
                     v.get("leaf"), v.get("relations") or [])
         for k, v in index2["variables"].items()}
+    catalogue.organisations = index2.get("organisations", {})
+    catalogue.registers = index2.get("registers", {})      # initiative: its schema and its datasets, one per class
+    catalogue.flat = bool(catalogue.registers)
+    catalogue.redirects = index2.get("redirects", {})
     catalogue.legends = index2.get("legends", {})
     catalogue.access_paths = index2.get("access_paths", {})
     catalogue.leaf_variables = {}

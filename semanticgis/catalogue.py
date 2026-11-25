@@ -423,6 +423,10 @@ class Catalogue:
         """Datasets per owner folder (the Datasets by Owner structure of the site)."""
         groups = {}
         for dataset in self.datasets.values():
+            if getattr(self, "flat", False):          # v2: the owner is a role, not a folder
+                if dataset.owner:
+                    groups.setdefault(dataset.owner, []).append(dataset)
+                continue
             parts = dataset.page.strip("/").split("/")
             if len(parts) > 2 and parts[0] == "Datasets by Owner":
                 groups.setdefault(parts[1], []).append(dataset)

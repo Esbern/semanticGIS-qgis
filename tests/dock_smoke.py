@@ -63,13 +63,13 @@ print("SPHERE:", [c.text() for c in children(tops["SPHERE"])])
 print("Reference Framework:", [c.text() for c in children(tops["Reference Framework"])])
 print("Classical:", [c.text() for c in children(tops["Classical Classifications"])],
       "| INSPIRE themes:", children(tops["Classical Classifications"])[0].rowCount())
-print("Collection Methods:", [c.text() for c in children(tops["Collection Methods"])])
-print("Collections:", [c.text() for c in children(tops["Datasets by Collection"])], "→",
-      len(children(children(tops["Datasets by Collection"])[0])), "registers")
-print("Owners:", tops["Datasets by Owner"].rowCount(), "e.g.", [c.text() for c in children(tops["Datasets by Owner"])][:3])
+print("Methods:", [c.text() for c in children(tops["Methods"])])
+print("Registers:", [c.text() for c in children(tops["Registers"])], "→",
+      len(children(children(tops["Registers"])[0])), "datasets in the first")
+print("Owners:", tops["Organisations"].rowCount(), "e.g.", [c.text() for c in children(tops["Organisations"])][:3])
 
 layers = lambda: QgsProject.instance().mapLayers()
-service = find(tops["Datasets by Owner"], lambda c: (c.data(ROLE) or ("",))[0] == "service" and c.text().startswith("WMS"))
+service = find(tops["Organisations"], lambda c: (c.data(ROLE) or ("",))[0] == "service" and c.text().startswith("WMS"))
 print("activating owner service:", service.text())
 dock.activate(service.index())
 assert pump(lambda: len(layers()) == 1), iface.bar.messages
