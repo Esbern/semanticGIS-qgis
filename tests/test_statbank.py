@@ -2,7 +2,7 @@
    python3 tests/test_statbank.py         (the last test needs the network: api.statbank.dk)"""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from semanticgis.statbank import cells, data_url, fetch, parse_tableinfo, pivot, read_jsonstat, table_id, tableinfo_url
+from semanticgis.statbank import fetch_data, parse_selection, cells, data_url, fetch, parse_tableinfo, pivot, read_jsonstat, table_id, tableinfo_url
 
 DST = {"dataset": {"dimension": {
     "OMRÅDE": {"label": "område", "category": {"index": {"101": 0, "147": 1}, "label": {"101": "København", "147": "Frederiksberg"}}},
@@ -57,6 +57,26 @@ def test_live_folk1a():
     kbh = next(r for r in w.rows if r[0] == "101")
     assert kbh[1] == "København" and all(isinstance(v, (int, float)) for v in kbh[2:])
     print("   ", info.title, "|", [c.name for c in w.columns], kbh)
+
+
+def test_live_all_postcodes():
+    """All 1,064 postcodes: too long for a GET (the API answers 404), fine with POST; the area is found by its name."""
+    info = parse_tableinfo(fetch(tableinfo_url("POSTNR1")))
+    assert info.area().id == "PNR20" and info.area().map is None
+    sel = info.default_selection()
+    assert len(sel["PNR20"]) > 1000
+    w = pivot(read_jsonstat(fetch_data("POSTNR1", sel, info=info)), ["PNR20"])
+    assert len(w.rows) > 1000, len(w.rows)
+    print("   ", w.rows[1][:3], [c.name for c in w.columns])
+
+
+def test_parse_selection():
+    info = parse_tableinfo(fetch(tableinfo_url("FOLK1A")))
+    sel = parse_selection("kØn=1,2; Tid=*; ALDER=", info)
+    assert sel["KØN"] == ["1", "2"] and len(sel["Tid"]) > 50 and "ALDER" not in sel and len(sel["OMRÅDE"]) > 100
+    for bad in ("FOO=1", "KØN=9", "KØN"):
+        try: parse_selection(bad, info); assert False, bad
+        except ValueError: pass
 
 
 if __name__ == "__main__":

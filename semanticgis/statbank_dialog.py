@@ -97,10 +97,12 @@ class StatBankDialog(QDialog):
     def show_info(self, info):
         self.info = info
         self.title.setText(f"<b>{info.id}: {info.title}</b> ({info.unit}; updated {info.updated[:10]})")
-        sel = info.default_selection()
+        self.join_codes = [{c["code"] for c in k.get("codes", [])} for k in (getattr(self.catalogue, "join_keys", None) or {}).values()]
+        sel = info.default_selection(self.join_codes)
+        area = info.area(self.join_codes)
         self.tree.blockSignals(True); self.tree.clear()
         for v in info.variables:
-            what = "the map: one row per area" if v.map else "time" if v.time else "leave all unticked for the total" if v.elimination else "tick at least one"
+            what = "the map: one row per area" if v is area else "time" if v.time else "leave all unticked for the total" if v.elimination else "tick at least one"
             top = QTreeWidgetItem([f"{v.id} — {v.text} ({len(v.values)} values; {what})"])
             top.setData(0, CODE, v.id); top.setFlags(top.flags() | Qt.ItemFlag.ItemIsAutoTristate | Qt.ItemFlag.ItemIsUserCheckable)
             for code, label in v.values:
@@ -134,12 +136,12 @@ class StatBankDialog(QDialog):
     # -- import -------------------------------------------------------------------------------------
     def run_import(self):
         info, sel = self.info, self.selection(); url = statbank.data_url(info.id, sel)
-        area = info.area(); rows = [area.id] if area else [next(v.id for v in info.variables if not v.time)]
+        area = info.area(getattr(self, "join_codes", None)); rows = [area.id] if area else [next(v.id for v in info.variables if not v.time)]
         time_rows = self.time_rows.isChecked()
         self.import_button.setEnabled(False); self.details.setText(f"Fetching {statbank.cells(sel, info):,} cells…")
 
         def task_function(task):
-            return statbank.pivot(statbank.read_jsonstat(statbank.fetch(url)), rows, time_as_rows=time_rows)
+            return statbank.pivot(statbank.read_jsonstat(statbank.fetch_data(info.id, sel, info=info)), rows, time_as_rows=time_rows)
 
         def done(exception, wide=None):
             self.import_button.setEnabled(True)

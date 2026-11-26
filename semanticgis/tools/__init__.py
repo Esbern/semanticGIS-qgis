@@ -17,6 +17,7 @@ from .flatten_snapshots import FlattenSnapshots
 from .line_density import LineDensity
 from .renumber_fid import RenumberFid
 from .snapshot_series import SnapshotSeries
+from .statbank_table import StatBankTable
 from .surface_partition import BuildPartitionLines, PolygonizePartition
 from .tabulate_area import TabulateAreaLegend
 from .urban_context import UrbanContext
@@ -24,7 +25,7 @@ from .value_combination import ValueCombination
 from .zonal_statistics import ZonalStatisticsLegend
 
 ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt, SnapshotSeries, FlattenSnapshots, ValueCombination,
-              UrbanContext, BuildingHeights, ClipToGeoPackage, AisDays, LineDensity, BuildPartitionLines, PolygonizePartition]
+              UrbanContext, BuildingHeights, ClipToGeoPackage, AisDays, StatBankTable, LineDensity, BuildPartitionLines, PolygonizePartition]
 
 
 class SemanticGisProvider(QgsProcessingProvider):

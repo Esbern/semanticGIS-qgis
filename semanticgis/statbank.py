@@ -38,15 +38,33 @@ class TableInfo:
     source: str = "Danmarks Statistik"
     footnote: str = ""
 
-    def area(self):
-        """The geographic variable (the one with a map), else None."""
-        return next((v for v in self.variables if v.map), None)
-
-    def default_selection(self):
-        """Area: all values; time: the latest; a variable that can be left out: left out (total); others: the first."""
-        sel = {}
+    def area(self, join_codes=None):
+        """The geographic variable: the one the API marks with a map; else the one whose codes are mostly codes of a
+        join key (`join_codes`: sets of codes, e.g. municipalities, postcodes; compared as numbers); else one named
+        like an area (OMRÅDE, KOMK, PNR20, SOGN, REGION, BOPOMR …). None when there is none."""
+        m = next((v for v in self.variables if v.map), None)
+        if m:
+            return m
+        num = lambda c: str(int(c)) if str(c).isdigit() else str(c)
+        best = None
         for v in self.variables:
-            if v.map:
+            if v.time or not v.values:
+                continue
+            codes = {num(c) for c, _ in v.values}
+            for known in join_codes or []:
+                share = len(codes & {num(c) for c in known}) / len(codes)
+                if share >= 0.5 and (best is None or share > best[0]):
+                    best = (share, v)
+        if best:
+            return best[1]
+        named = [v for v in self.variables if not v.time and re.match(r"(?i)(omr|kom|pnr|post|sogn|region|bopomr|landsdel)", v.id)]
+        return max(named, key=lambda v: len(v.values)) if named else None
+
+    def default_selection(self, join_codes=None):
+        """Area: all values; time: the latest; a variable that can be left out: left out (total); others: the first."""
+        sel, area = {}, self.area(join_codes)
+        for v in self.variables:
+            if v is area:
                 sel[v.id] = [c for c, _ in v.values]
             elif v.time:
                 sel[v.id] = [v.values[-1][0]]
@@ -72,6 +90,45 @@ def tableinfo_url(table, lang="da"):
 def data_url(table, selection, lang="da"):
     params = [("lang", lang)] + [(var, ",".join(codes)) for var, codes in selection.items() if codes]
     return f"{DST_API}/data/{urllib.parse.quote(table)}/JSONSTAT?" + urllib.parse.urlencode(params, safe=",*()")
+
+
+def fetch_data(table, selection, lang="da", info=None, timeout=120):
+    """The selected cells as JSON-stat, asked for with POST: a selection of a thousand postcodes is too long for a URL
+    (the API answers 404 to a long GET). A variable with all its values selected is sent as "*"."""
+    variables = []
+    for var, codes in selection.items():
+        allv = info and next((v for v in info.variables if v.id == var), None)
+        variables.append({"code": var, "values": ["*"] if allv and len(codes) == len(allv.values) else list(codes)})
+    body = json.dumps({"table": table, "format": "JSONSTAT", "lang": lang, "variables": variables}).encode("utf-8")
+    req = urllib.request.Request(f"{DST_API}/data", data=body, headers={"Content-Type": "application/json", "User-Agent": "SemanticGIS QGIS plugin"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8-sig"))
+
+
+def parse_selection(text, info):
+    """'KØN=1,2; Tid=2025K4,2026K4; ALDER=*' -> {variable: [codes]} on top of the defaults; '*' = all values,
+    an empty value list = left out (the total). Variable ids are matched without regard to case."""
+    sel = info.default_selection()
+    by = {v.id.casefold(): v for v in info.variables}
+    for part in re.split(r"[;\n]+", text or ""):
+        if not part.strip():
+            continue
+        if "=" not in part:
+            raise ValueError(f"'{part.strip()}': write VARIABLE=code,code")
+        name, codes = (x.strip() for x in part.split("=", 1))
+        v = by.get(name.casefold())
+        if v is None:
+            raise ValueError(f"{name} is not a variable of {info.id} ({', '.join(x.id for x in info.variables)})")
+        known = {c for c, _ in v.values}
+        wanted = [c for c, _ in v.values] if codes == "*" else [c.strip() for c in codes.split(",") if c.strip()]
+        bad = [c for c in wanted if c not in known]
+        if bad:
+            raise ValueError(f"{v.id} has no value {', '.join(bad[:5])}")
+        if wanted:
+            sel[v.id] = wanted
+        else:
+            sel.pop(v.id, None)
+    return sel
 
 
 def fetch(url, timeout=60):
@@ -205,7 +262,7 @@ def pivot(cube, row_dims, time_as_rows=False):
 
     columns, taken = [], set()
     for key in combos(cols_):
-        parts = [safe(by_id[i].labels.get(c, c)) for i, c in key.items()] or [safe(cube.label or "value")]
+        parts = [safe(by_id[i].labels.get(c, c)) for i, c in key.items()] or ["INDHOLD"]      # one number per row: StatBank's own name
         name = "_".join(parts)
         if not re.match(r"[A-Za-z]", name):
             name = "v" + name
