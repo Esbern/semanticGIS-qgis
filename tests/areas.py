@@ -10,7 +10,7 @@ app = QgsApplication([], True); app.initQgis()
 QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, tempfile.mkdtemp()); QgsSettings().remove("semanticgis")
 from qgis.PyQt.QtWidgets import QMainWindow
 from semanticgis.catalogue import load_catalogue
-from semanticgis.catalogue_v2 import around, canvas_home, concerns, touches
+from semanticgis.catalogue_v2 import around, canvas_home, concerns
 from semanticgis.dock import ROLE, SemanticGisDock
 fails = 0
 def expect(label, got, want=True):
@@ -18,13 +18,11 @@ def expect(label, got, want=True):
     ok = got == want; fails += not ok; print(("ok   " if ok else "FAIL ") + label + ("" if ok else f": {got!r} != {want!r}"))
 A = {"w": {"parent": None}, "e": {"parent": "w"}, "d": {"parent": "e"}, "z": {"parent": "d"}, "c": {"parent": "z"}, "g": {"parent": "w"}}
 expect("around", around(A, "c"), ["z", "d", "e", "w"]); C = lambda s, a, u=None, n=None: concerns(A, s, a, useful=u, scale=n)
-expect("itself, inside, around, beside", [C("d", "d"), C("c", "d"), C("e", "d"), C("w", "d"), C("g", "d")], [True, True, True, True, False])
+expect("itself, inside, around, beside: only those that cover the whole area", [C("d", "d"), C("c", "d"), C("e", "d"), C("w", "d"), C("g", "d")], [True, False, True, True, False])
 expect("scale: useful from 1:2,000 or 1:50,000, mapping at 1:25,000", [C("w", "d", 2000, 25000), C("w", "d", 50000, 25000), C("d", "d", 50000, 25000), C("w", "d", None, 25000), C("w", "d", 50000, None)], [True, False, False, True, True])
 B = {"w": {"parent": None, "boxes": [[-180, -90, 180, 90]]}, "d": {"parent": "w", "boxes": [[8, 54.5, 15.3, 57.8]]}, "c": {"parent": "d", "boxes": [[12.2, 55.5, 12.75, 55.85]]}, "b": {"parent": "d", "boxes": [[14.6, 54.9, 15.25, 55.4]]}}
 cph, odense = [12.5, 55.6, 12.6, 55.7], [10.3, 55.35, 10.45, 55.45]
 expect("canvas: the smallest area that holds it", [canvas_home(B, cph), canvas_home(B, odense), canvas_home(B, [-10, 40, 30, 60])], ["c", "d", "w"])
-expect("touches", [touches(B, "c", cph), touches(B, "b", cph), touches(B, "x", cph)], [True, False, False])
-expect("canvas over Denmark: only the places it shows", [concerns(B, s, "d", odense) for s in ("d", "c", "b", "w")], [True, False, False, True])
 expect("unknown area, no choice", [C(None, "c"), C("g", ""), C("x", "d")], [True, True, True])
 class I:
     w = QMainWindow()
@@ -47,7 +45,7 @@ expect("the list is the catalogue's, by kind", len(titles), len(d.catalogue.area
 dk, all_, cph, dk1k, dk25k = choose("denmark"), choose(""), choose("copenhagen"), choose("denmark", 1000), choose("denmark", 25000); scope = {k: v.scope for k, v in d.catalogue.datasets.items() if hasattr(v, "scope")}
 gd = {k for k, v in d.catalogue.datasets.items() if getattr(v, "useful_from", None) == 2000}
 print("all", len(all_), "Denmark", len(dk), "Copenhagen", len(cph), "Denmark 1:1,000", len(dk1k), "1:25,000", len(dk25k), "GeoDanmark", len(gd))
-expect("Greenland is not in Denmark's list", [k for k in dk if scope.get(k) == "greenland"], []); expect("Copenhagen is in Denmark's", any(scope.get(k) == "copenhagen" for k in dk)); expect("Copenhagen: its own and the larger areas'", {scope.get(k) for k in cph} & {"bornholm", "greenland", "jutland", "funen"}, set()); expect("nothing lost in 'all'", dk <= all_ and cph <= all_)
+expect("Greenland is not in Denmark's list", [k for k in dk if scope.get(k) == "greenland"], []); expect("Copenhagen's are not in Denmark's (they do not cover Denmark)", any(scope.get(k) == "copenhagen" for k in dk), False); expect("Copenhagen's are in Copenhagen's", any(scope.get(k) == "copenhagen" for k in cph)); expect("Copenhagen: its own and the larger areas'", {scope.get(k) for k in cph} & {"bornholm", "greenland", "jutland", "funen"}, set()); expect("nothing lost in 'all'", dk <= all_ and cph <= all_)
 expect("world data (OpenStreetMap) are in Denmark's and Copenhagen's", (any(scope.get(k) == "world" for k in dk), any(scope.get(k) == "world" for k in cph)), (True, True)); expect("area without a scope is always shown", {k for k in all_ if not scope.get(k)} <= cph)
 expect("GeoDanmark (useful from 1:2,000) at 1:25,000 but not at 1:1,000", (bool(gd) and gd & dk == gd & dk25k == gd & dk, gd & dk1k), (True, set()))
 d2 = SemanticGisDock(I()); choose("copenhagen", 25000); d2.catalogue = d.catalogue; d2.rebuild(); expect("the choice is remembered", (d2.area.currentData(), d2.scale.currentData()), ("copenhagen", 25000))
@@ -61,7 +59,9 @@ d3 = SemanticGisDock(J()); d3.catalogue = d.catalogue; d3.verified_only.setCheck
 on = choose("@canvas"); print("canvas over Copenhagen:", len(on), d3.area.currentText())
 expect("canvas over Copenhagen finds the Copenhagen area", "Copenhagen" in d3.area.currentText()); choose("@canvas", -1); expect("scale as the map", d3.scale.currentText().startswith("as the map (1:"))
 expect("and shows its data and Denmark's, not Bornholm's or Greenland's", (any(scope.get(k) == "copenhagen" for k in on), any(scope.get(k) == "denmark" for k in on), [k for k in on if scope.get(k) in ("bornholm", "greenland")]), (True, True, []))
-J.c.setExtent(QgsRectangle(14.7, 55.0, 14.9, 55.2)); d3._canvas_moved(); on2 = shown()
-expect("the map moves to Bornholm: the list follows", ("Bornholm" in d3.area.currentText(), any(scope.get(k) == "copenhagen" for k in on2), on2 != on), (True, False, True))
+on = shown(); J.c.setExtent(QgsRectangle(14.7, 55.0, 14.9, 55.2)); expect("the map moves: the list stays until it is read again", shown(), on); expect("the read-the-map button is there", d3.read_map.isVisibleTo(d3))
+d3.read_map.click(); on2 = shown()
+expect("read again over Bornholm", ("Bornholm" in d3.area.currentText(), any(scope.get(k) == "copenhagen" for k in on2), on2 != on), (True, False, True))
+J.c.setExtent(QgsRectangle(10.3, 55.35, 10.45, 55.45)); d3.read_map.click(); expect("over Odense: Funen's and the larger areas' only", ("Funen" in d3.area.currentText(), {scope.get(k) for k in shown()} <= {None, "funen", "denmark", "europe", "world"}), (True, True))
 d = dd; d.catalogue.areas = {}; d.rebuild(); expect("no areas, no choice shown", d.area_row.isVisibleTo(d), False)
 QgsSettings().remove("semanticgis"); print("failures:", fails); app.exitQgis(); sys.exit(bool(fails))

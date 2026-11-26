@@ -3,7 +3,7 @@
 import os
 
 from qgis.core import Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsMessageLog, QgsProject, QgsSettings, QgsTask
-from qgis.PyQt.QtCore import QCoreApplication, QTimer, QUrl, Qt
+from qgis.PyQt.QtCore import QCoreApplication, QUrl, Qt
 from qgis.PyQt.QtGui import QDesktopServices, QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
 from . import legends
-from .catalogue_v2 import KINDS, LINK_NOTE, SCALES, SHARE, around, canvas_home, concerns, touches
+from .catalogue_v2 import KINDS, LINK_NOTE, SCALES, SHARE, canvas_home, concerns
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
@@ -112,8 +112,8 @@ class SemanticGisDock(QDockWidget):
 
         areas = QHBoxLayout()
         self.area, self.scale = QComboBox(), QComboBox()
-        self.area.setToolTip("Show data about this area and the places inside it. Map canvas: the area the map shows, following the map")
-        self.scale.setToolTip("The scale you map at. Data about larger areas are shown too (OpenStreetMap is about the world); datasets whose errors show at this scale are hidden. Where the useful scale is not known, the dataset is shown")
+        self.area.setToolTip("Show the data that cover this whole area: data about it and about the larger areas that hold it. Map canvas: the smallest area that holds the map")
+        self.scale.setToolTip("The scale you map at: datasets whose errors show at this scale are hidden. Where the useful scale is not known, the dataset is shown")
         self.scale.addItem("any scale", 0)
         self.scale.addItem("as the map", self.MAP_SCALE)
         for n in SCALES:
@@ -123,6 +123,11 @@ class SemanticGisDock(QDockWidget):
         areas.addWidget(self.area, 1)
         areas.addWidget(QLabel("at about"))
         areas.addWidget(self.scale, 1)
+        self.read_map = QToolButton()
+        self.read_map.setIcon(QgsApplication.getThemeIcon("mActionRefresh.svg"))
+        self.read_map.setToolTip("Read the map again (its area and scale); the list does not follow the map by itself")
+        self.read_map.clicked.connect(self.rebuild)
+        areas.addWidget(self.read_map)
         self.area_row = QWidget()
         areas.setContentsMargins(0, 0, 0, 0)
         self.area_row.setLayout(areas)
@@ -130,14 +135,8 @@ class SemanticGisDock(QDockWidget):
         layout.addWidget(self.area_row)
         self.area.currentIndexChanged.connect(self._area_chosen)
         self.scale.currentIndexChanged.connect(self._scale_chosen)
-        self._canvas_key, self._area_now = None, None
-        self._canvas_timer = QTimer(self)
-        self._canvas_timer.setSingleShot(True)
-        self._canvas_timer.setInterval(700)
-        self._canvas_timer.timeout.connect(self._canvas_moved)
-        canvas = iface.mapCanvas() if hasattr(iface, "mapCanvas") else None
-        if canvas is not None:
-            canvas.extentsChanged.connect(self._canvas_timer.start)
+        self._area_now = None
+        self._show_read_map()
 
         self.verified_only = QCheckBox("Verified services only")
         self.verified_only.setChecked(True)
@@ -652,7 +651,6 @@ class SemanticGisDock(QDockWidget):
             add(None, 0)
         self.area.setCurrentIndex(max(0, self.area.findData(wanted)))
         self.area.blockSignals(False)
-        self._canvas_key = None
 
     def _canvas_box(self):
         """The map canvas as (west, south, east, north) in degrees; None when there is no canvas."""
@@ -689,28 +687,17 @@ class SemanticGisDock(QDockWidget):
             self.scale.setItemText(self.scale.findData(self.MAP_SCALE), f"as the map (1:{n:,})" if n else "as the map")
         return n or None
 
+    def _show_read_map(self):
+        self.read_map.setVisible(self.area.currentData() == self.CANVAS or self.scale.currentData() == self.MAP_SCALE)
+
     def _area_chosen(self):
         QgsSettings().setValue(SETTINGS_PREFIX + "v2_area", self.area.currentData())
-        self._canvas_key = None
+        self._show_read_map()
         self.rebuild()
 
     def _scale_chosen(self):
         QgsSettings().setValue(SETTINGS_PREFIX + "v2_scale", self.scale.currentData())
-        self._canvas_key = None
-        self.rebuild()
-
-    def _canvas_moved(self):
-        """The map moved: with Map canvas chosen, show again when the areas it shows have changed."""
-        on_map, at_map = self.area.currentData() == self.CANVAS, self.scale.currentData() == self.MAP_SCALE
-        if not (on_map or at_map) or not self.catalogue:
-            return
-        known = getattr(self.catalogue, "areas", None) or {}
-        home, box = self._chosen() if on_map else (None, None)
-        n = self._scale_now() if at_map else None
-        key = (home, frozenset(a for a in known if box and home in around(known, a) and touches(known, a, box)), next((x for x in SCALES if n and n <= x), None))
-        if key == self._canvas_key:
-            return
-        self._canvas_key = key
+        self._show_read_map()
         self.rebuild()
 
     def _in_area(self, dataset):
@@ -719,8 +706,7 @@ class SemanticGisDock(QDockWidget):
             return True
         if self._area_now is None:
             self._area_now, self._scale_value = self._chosen(), self._scale_now()
-        area, box = self._area_now
-        return concerns(known, getattr(dataset, "scope", None), area, box, getattr(dataset, "useful_from", None), self._scale_value)
+        return concerns(known, getattr(dataset, "scope", None), self._area_now[0], getattr(dataset, "useful_from", None), self._scale_value)
 
     def rebuild(self):
         self.model.clear()

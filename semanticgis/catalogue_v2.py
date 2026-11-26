@@ -143,11 +143,6 @@ def around(areas, area):
 KINDS = (("global", "Global"), ("regional", "Regional"), ("national", "National"), ("local", "Local"), ("project", "Project"))
 
 
-def touches(areas, area, box):
-    """Does one of the area's search boxes meet the box (west, south, east, north, in degrees)?"""
-    return any(b[0] <= box[2] and box[0] <= b[2] and b[1] <= box[3] and box[1] <= b[3] for b in areas.get(area, {}).get("boxes") or [])
-
-
 def _size(b):
     return max(0, b[2] - b[0]) * max(0, b[3] - b[1])
 
@@ -165,18 +160,15 @@ def canvas_home(areas, box):
 SCALES = (1000, 10000, 25000, 50000, 100000, 250000, 1000000, 10000000)   # the choices in the panel: 1:n
 
 
-def concerns(areas, scope, chosen, near=None, useful=None, scale=None):
+def concerns(areas, scope, chosen, useful=None, scale=None):
     """Is a dataset about `scope`, useful from 1:`useful`, wanted by someone who maps the area `chosen` at about 1:`scale`?
-    Data about the area, about places inside it and about the larger areas that hold it, when they are useful at that scale.
-    With `near` (a box: the map canvas), a place inside the area counts only when it touches the box.
-    Data whose area or useful scale is not known are shown."""
+    Only data that cover the whole chosen area: data about it, or about a larger area that holds it (OpenStreetMap is about the world) –
+    not data about a place inside it. Hidden too: data whose errors show at that scale. Data whose area or useful scale is not known are shown."""
     if useful and scale and useful > scale:
         return False
-    if not chosen or chosen not in areas or not scope or scope not in areas or scope == chosen:
+    if not chosen or chosen not in areas or not scope or scope not in areas:
         return True
-    if chosen in around(areas, scope):
-        return near is None or touches(areas, scope, near)
-    return scope in around(areas, chosen)
+    return scope == chosen or scope in around(areas, chosen)
 
 
 def columns_of(dataset, service):
