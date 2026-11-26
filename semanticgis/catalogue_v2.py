@@ -116,6 +116,8 @@ def extend(catalogue, index2, catalogue2, make_service):
         dataset.versions = [Version(v["id"], v.get("label") or v["id"], v["page"], v["variables"], v["meanings"]) for v in d["versions"]]
         # a series too long for the tree (a file per day for years) is fetched by one of this plugin's own tools
         dataset.scope = (d.get("scope") or {}).get("area")
+        useful = (d.get("quality") or {}).get("useful_from")
+        dataset.useful_from = max(useful) if isinstance(useful, list) and useful else useful   # 1:n; where it varies (towns, countryside), the coarsest
         dataset.tools = [t for t in d.get("tools") or [] if str(t.get("algorithm", "")).startswith("semanticgis:")]
         dataset.share = []
         for s in d.get("share") or []:
@@ -160,16 +162,21 @@ def canvas_home(areas, box):
     return best or next((k for k, a in areas.items() if not a.get("parent")), None)
 
 
-def concerns(areas, scope, chosen, up_to=None, near=None):
-    """Is a dataset about `scope` wanted by someone who chose an area and the areas around it up to `up_to`?
-    Data about the area, about places inside it, and about the areas around it as far as asked for; data whose area is not known are always shown.
-    With `near` (a box: the map canvas), a place inside the area counts only when it touches the box."""
+SCALES = (1000, 10000, 25000, 50000, 100000, 250000, 1000000, 10000000)   # the choices in the panel: 1:n
+
+
+def concerns(areas, scope, chosen, near=None, useful=None, scale=None):
+    """Is a dataset about `scope`, useful from 1:`useful`, wanted by someone who maps the area `chosen` at about 1:`scale`?
+    Data about the area, about places inside it and about the larger areas that hold it, when they are useful at that scale.
+    With `near` (a box: the map canvas), a place inside the area counts only when it touches the box.
+    Data whose area or useful scale is not known are shown."""
+    if useful and scale and useful > scale:
+        return False
     if not chosen or chosen not in areas or not scope or scope not in areas or scope == chosen:
         return True
     if chosen in around(areas, scope):
         return near is None or touches(areas, scope, near)
-    chain = around(areas, chosen)
-    return scope in (chain[:chain.index(up_to) + 1] if up_to in chain else [])
+    return scope in around(areas, chosen)
 
 
 def columns_of(dataset, service):

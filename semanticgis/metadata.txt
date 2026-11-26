@@ -17,7 +17,7 @@ tags=urban design,building heights,dhm,geodanmark,blender,wkt,copernicus,area of
 experimental=False
 hasProcessingProvider=yes
 deprecated=False
-changelog=0.9.0-dev11 Areas grouped by kind (global, regional, national, local, project); new choice Map canvas: data about the area the map shows, following the map as it moves.
+changelog=0.9.0-dev11 Area and scale: 'Area [Denmark] at about [1:25,000]' shows data about the area, the places inside it and the larger areas that hold it (OpenStreetMap is about the world), and hides those whose errors show at that scale. Areas grouped by kind (global, regional, national, local, project). Map canvas: the area the map shows; 'as the map': the map's scale. Both follow the map.
     0.9.0-dev10 Area in the panel's heading: shows data about the chosen area, the places inside it, and as far around it as you want. The list of areas comes from the site.
     0.9.0-dev9 Follows the pages moved to Inner workings (Methods is no longer a way in); Organisations no longer lists Datafordeleren's registers.
     0.9.0-dev8 New tool: Line density (Raster analysis): how many vessels or lines cross each cell; with EPSG:3035 and 1000 m the cells are those of HELCOM's shipping density. AIS days now lies under Data access.
