@@ -28,6 +28,7 @@ from . import legends
 from .catalogue_v2 import KINDS, LINK_NOTE, SCALES, SHARE, around, canvas_home, concerns
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
+from .statbank_dialog import StatBankDialog
 from .layers import (
     PREFERRED_CRS,
     VARIABLES,
@@ -148,8 +149,12 @@ class SemanticGisDock(QDockWidget):
         self.join_button = QPushButton("Join a table to reference units…")
         self.join_button.setToolTip("Give a statistics table geometry by matching its unit IDs to NUTS, LAU and other reference units")
         self.join_button.setEnabled(False)
-        self.join_button.clicked.connect(self.open_join)
+        self.join_button.clicked.connect(lambda: self.open_join())
         layout.addWidget(self.join_button)
+        self.statbank_button = QPushButton("Import a table from Danmarks Statistik…")
+        self.statbank_button.setToolTip("Fetch a StatBank table (e.g. FOLK1A) with codes and names, one number column per value you choose, ready to calculate and join")
+        self.statbank_button.clicked.connect(self.open_statbank)
+        layout.addWidget(self.statbank_button)
         self.credits_button = QPushButton("Copy attributions for the map")
         self.credits_button.setToolTip(
             "Copy the attribution lines of the project's layers, to paste into a label in the print layout.\n"
@@ -210,9 +215,15 @@ class SemanticGisDock(QDockWidget):
         self._task = QgsTask.fromFunction("Load SemanticGIS catalogue", task_function, on_finished=on_finished)
         QgsApplication.taskManager().addTask(self._task)
 
-    def open_join(self):
+    def open_join(self, layer=None):
         if self.catalogue is not None:
-            JoinDialog(self.iface, self.catalogue, self).show()
+            dialog = JoinDialog(self.iface, self.catalogue, self)
+            if layer is not None:
+                dialog.table.setLayer(layer)
+            dialog.show()
+
+    def open_statbank(self):
+        StatBankDialog(self.iface, self.catalogue, self, open_join=self.open_join).show()
 
     def open_settings(self):
         profiles = self.catalogue.access_profiles if self.catalogue else KEYS.profiles
