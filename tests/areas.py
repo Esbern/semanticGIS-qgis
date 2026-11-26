@@ -72,11 +72,15 @@ expect("no search text: 'In Copenhagen area' comes first", top[0].text(), "In Co
 groups = [top[0].child(i).text() for i in range(top[0].rowCount())]; print(groups)
 expect("by area, nearest first", [g.split(" (")[0] for g in groups][:3], ["About Copenhagen area", "About Zealand and the southern islands", "About Denmark"])
 kk = top[0].child(0); kids = [kk.child(i).data(ROLE)[1] for i in range(kk.rowCount())]
-expect("Copenhagen's statistical units are there", "koebenhavns-kommune-statistical-units" in kids)
+KK = [f"koebenhavns-kommune-{i}" for i in ("bydele", "lokaludvalg", "kvarterer", "roder")]
+expect("Copenhagen's four levels are datasets of their own", [k for k in KK if k in kids], KK)
+expect("useful from 1:10,000", [d.catalogue.datasets[k].useful_from for k in KK], [10000] * 4)
 from semanticgis.layers import layer_source
-units = d.catalogue.datasets["koebenhavns-kommune-statistical-units"]
-expect("its four levels are files on the web", [layer_source(s) for s in units.services], [("/vsicurl/https://semanticgis.org/Data/assets/reference/koebenhavn/" + n + ".gpkg", "ogr") for n in ("kk_bydel", "kk_lokaludvalg", "kk_kvarter", "kk_rode")])
-lay = QgsVectorLayer(*layer_source(units.services[0])[:1], "bydele", "ogr"); expect("bydele load over the web: 10 districts", (lay.isValid(), lay.featureCount()), (True, 10))
+expect("each level is a file on the web", [layer_source(d.catalogue.datasets[k].services[0]) for k in KK], [("/vsicurl/https://semanticgis.org/Data/assets/reference/koebenhavn/" + n + ".gpkg", "ogr") for n in ("kk_bydel", "kk_lokaludvalg", "kk_kvarter", "kk_rode")])
+lay = QgsVectorLayer(*layer_source(d.catalogue.datasets[KK[0]].services[0])[:1], "bydele", "ogr"); expect("bydele load over the web: 10 districts", (lay.isValid(), lay.featureCount()), (True, 10))
+reg = d.catalogue.registers["koebenhavns-kommune-statistical-units"]; expect("a register with the four", (reg["page"], reg["datasets"]), ("/Initiatives/koebenhavns-kommune-statistical-units", KK))
+choose("copenhagen", 1000); expect("at 1:1,000 they are hidden", [k for k in KK if k in shown(True)], [])
+choose("copenhagen", 10000); expect("at 1:10,000 they are shown", [k for k in KK if k in shown(True)], KK)
 choose(""); expect("All areas: no 'In …' branch", d.model.invisibleRootItem().child(0).text().startswith("In "), False)
 d.catalogue.areas = {}; d.rebuild(); expect("no areas, no choice shown", d.area_row.isVisibleTo(d), False)
 QgsSettings().remove("semanticgis"); print("failures:", fails); app.exitQgis(); sys.exit(bool(fails))
