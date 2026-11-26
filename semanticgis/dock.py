@@ -286,7 +286,9 @@ class SemanticGisDock(QDockWidget):
             parent.appendRow(self._item(text, ("service", dataset.id, service.id, leaf_id), tip))
         return bool(services)
 
-    def _dataset_item(self, dataset, leaf_id=None):
+    def _dataset_item(self, dataset, leaf_id=None, page_only=False):
+        """A dataset and what can be added from it. Nothing to add: left out, unless page_only (a register's
+        class without a map service, e.g. BBR's Enhed through GraphQL), then shown as a link to its page."""
         if not self._in_area(dataset):
             return None
         preferred = self._preferred(dataset)
@@ -300,7 +302,11 @@ class SemanticGisDock(QDockWidget):
         for number, tool in enumerate(getattr(dataset, "tools", [])):
             item.appendRow(self._item(f"⚙ {tool['title']}", ("tool", dataset.id, number), tool.get("description", "") + "\nDouble-click opens the tool."))
         if not services and not item.hasChildren():
-            return None
+            if not page_only:
+                return None
+            item.setText(f"{dataset.title}  (page only)")
+            item.setToolTip(f"{dataset.page}\nNo layer to add in QGIS (fetched through GraphQL or file download). Double-click opens its page.")
+            return item
         self._subset_items(item, dataset, leaf_id)
         self._version_items(item, dataset)
         return item
@@ -499,7 +505,7 @@ class SemanticGisDock(QDockWidget):
             reg_item = self._item(r["title"], ("page", r["page"]), "Purpose and datasets")
             for dataset_id in r["datasets"]:
                 dataset = self.catalogue.datasets.get(dataset_id)
-                ds_item = self._dataset_item(dataset) if dataset else None
+                ds_item = self._dataset_item(dataset, page_only=True) if dataset else None
                 if ds_item is not None:
                     reg_item.appendRow(ds_item)
             if reg_item.hasChildren():
@@ -809,6 +815,8 @@ class SemanticGisDock(QDockWidget):
             if preferred is not None:
                 leaf = self.catalogue.leaves.get(data[2]) if data[2] else None
                 self.add_layer(leaf, dataset, preferred)
+            elif dataset.page:
+                self._open_page(dataset.page)
         elif data[0] == "subset":
             leaf = self.catalogue.leaves.get(data[3]) if data[3] else None
             self.add_subset(leaf, self.catalogue.datasets[data[1]], data[2])
