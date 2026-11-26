@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS v2 (test)" version="0.9.0-dev13" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS v2 (test)" version="0.9.0-dev14" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.9.0-dev13</version>
-    <changelog>0.9.0-dev13 With an area chosen, the panel opens with 'In &lt;area&gt;': the datasets that cover it, by the area they are about (nearest first), without typing a search. Files on the web (Copenhagen's statistical units, GISCO's LAU and NUTS) load as layers.
+    <version>0.9.0-dev14</version>
+    <changelog>0.9.0-dev14 Registers show all their class datasets: those without a map service (BBR's Enhed, Etage, Opgang, Grund … fetched through GraphQL) appear as page links; double-click opens the page with their attributes and code lists.
+0.9.0-dev13 With an area chosen, the panel opens with 'In &lt;area&gt;': the datasets that cover it, by the area they are about (nearest first), without typing a search. Files on the web (Copenhagen's statistical units, GISCO's LAU and NUTS) load as layers.
 0.9.0-dev12 An area shows only the data that cover all of it (data about it and about the larger areas that hold it), no longer data about places inside it. The map is read when you choose Map canvas or 'as the map', and again with the button beside them; the list no longer follows every move of the map.
 0.9.0-dev11 Area and scale: 'Area [Denmark] at about [1:25,000]' shows data about the area, the places inside it and the larger areas that hold it (OpenStreetMap is about the world), and hides those whose errors show at that scale. Areas grouped by kind (global, regional, national, local, project). Map canvas: the area the map shows; 'as the map': the map's scale. Both follow the map.
 0.9.0-dev10 Area in the panel's heading: shows data about the chosen area, the places inside it, and as far around it as you want. The list of areas comes from the site.
@@ -53,13 +54,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.9.0-dev13.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.9.0-dev13/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.9.0-dev14.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.9.0-dev14/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.9.0-dev13/semanticgis.0.9.0-dev13.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.9.0-dev14/semanticgis.0.9.0-dev14.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-11-26T10:42:52Z</create_date>
-    <update_date>2026-11-26T10:42:52Z</update_date>
+    <create_date>2026-11-26T12:56:10Z</create_date>
+    <update_date>2026-11-26T12:56:10Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
