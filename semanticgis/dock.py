@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
 from . import legends
-from .catalogue_v2 import KINDS, LINK_NOTE, SCALES, SHARE, canvas_home, concerns
+from .catalogue_v2 import KINDS, LINK_NOTE, SCALES, SHARE, around, canvas_home, concerns
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
@@ -550,6 +550,28 @@ class SemanticGisDock(QDockWidget):
                 top.appendRow(owner_item)
         return top
 
+    def _area_branch(self):
+        """With an area chosen: the datasets that cover all of it, by the area they are about, from the nearest to the world."""
+        known = getattr(self.catalogue, "areas", None) or {}
+        area = (self._area_now or ("", None))[0]
+        if not area or area not in known:
+            return None
+        top = self._top(f"In {known[area]['title']}", "Datasets that cover all of the chosen area: about it, or about a larger area that holds it", f"/Areas/{area}")
+        by_scope = {}
+        for dataset in self.catalogue.datasets.values():
+            by_scope.setdefault(getattr(dataset, "scope", None), []).append(dataset)
+        for key in [area, *around(known, area), None]:
+            group = self._item("Area not known" if key is None else f"About {known[key]['title']}", ("area", key or ""),
+                               "Datasets whose area nobody has recorded yet" if key is None else known[key].get("title", ""))
+            for dataset in sorted(by_scope.get(key, []), key=lambda d: d.title.lower()):
+                ds_item = self._dataset_item(dataset)
+                if ds_item is not None:
+                    group.appendRow(ds_item)
+            if group.hasChildren():
+                group.setText(f"{group.text()} ({group.rowCount()})")
+                top.appendRow(group)
+        return top
+
     def _sphere_branch(self):
         top = self._top("SPHERE", "The thematic spheres and their twigs", "/SPHERE/")
         for sphere in self.catalogue.thematic_spheres:
@@ -713,7 +735,7 @@ class SemanticGisDock(QDockWidget):
         if not self.catalogue:
             return
         self._fill_areas()
-        self._area_now = None                               # worked out once per rebuild (the canvas is read once)
+        self._area_now, self._scale_value = self._chosen(), self._scale_now()   # once per rebuild (the canvas is read once)
         root = self.model.invisibleRootItem()
         text = self.search.text().strip()
         if text:
@@ -734,6 +756,7 @@ class SemanticGisDock(QDockWidget):
             self.tree.expandToDepth(0)
             return
         for branch in (
+            self._area_branch,
             self._classical_branch,
             *(() if getattr(self.catalogue, "flat", False) else (self._methods_branch,)),      # v2: methods are inner workings
             self._collections_branch,
@@ -743,6 +766,8 @@ class SemanticGisDock(QDockWidget):
             self._basemaps_branch,
         ):
             item = branch()
+            if item is None:
+                continue
             if not item.hasChildren():
                 # Older published catalogues lack the data for some entry points; say so rather than
                 # showing an empty folder.

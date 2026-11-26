@@ -119,6 +119,10 @@ def extend(catalogue, index2, catalogue2, make_service):
         useful = (d.get("quality") or {}).get("useful_from")
         dataset.useful_from = max(useful) if isinstance(useful, list) and useful else useful   # 1:n; where it varies (towns, countryside), the coarsest
         dataset.tools = [t for t in d.get("tools") or [] if str(t.get("algorithm", "")).startswith("semanticgis:")]
+        for service in dataset.services:                     # a file on the web (reference units): read where it lies
+            if service.type == "file" and not hasattr(service, "kind"):
+                service.kind = "raster" if service.url.lower().endswith((".tif", ".tiff")) else "vector"
+                service.description, service.unit, service.rows = "", None, None
         dataset.share = []
         for s in d.get("share") or []:
             files = []

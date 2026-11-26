@@ -29,14 +29,17 @@ class I:
     def mainWindow(self): return self.w
     def messageBar(self): return None
 d = SemanticGisDock(I()); d.catalogue, _ = load_catalogue(os.environ["SEMANTICGIS_CATALOGUE"]); d.verified_only.setChecked(False); d.rebuild()
-def shown():
+def shown(area_branch=False):
+    """The datasets in the tree; without the 'In …' branch, which reaches datasets the other ways in do not (no publisher, no leaf)."""
     out = set()
-    def walk(i):
+    def walk(i, top=False):
         for k in range(i.rowCount()):
-            x = i.child(k).data(ROLE)
+            c = i.child(k)
+            if top and c.text().startswith("In ") and not area_branch: continue
+            x = c.data(ROLE)
             if x and x[0] == "dataset": out.add(x[1])
-            walk(i.child(k))
-    walk(d.model.invisibleRootItem()); return out
+            walk(c)
+    walk(d.model.invisibleRootItem(), True); return out
 def choose(a, n=0):
     d.area.setCurrentIndex(d.area.findData(a)); d.scale.setCurrentIndex(d.scale.findData(n)); return shown()
 titles = [d.area.itemText(i).strip() for i in range(d.area.count())]; print(titles)
@@ -63,5 +66,17 @@ on = shown(); J.c.setExtent(QgsRectangle(14.7, 55.0, 14.9, 55.2)); expect("the m
 d3.read_map.click(); on2 = shown()
 expect("read again over Bornholm", ("Bornholm" in d3.area.currentText(), any(scope.get(k) == "copenhagen" for k in on2), on2 != on), (True, False, True))
 J.c.setExtent(QgsRectangle(10.3, 55.35, 10.45, 55.45)); d3.read_map.click(); expect("over Odense: Funen's and the larger areas' only", ("Funen" in d3.area.currentText(), {scope.get(k) for k in shown()} <= {None, "funen", "denmark", "europe", "world"}), (True, True))
-d = dd; d.catalogue.areas = {}; d.rebuild(); expect("no areas, no choice shown", d.area_row.isVisibleTo(d), False)
+d = dd; d.search.setText(""); choose("copenhagen")
+top = [d.model.invisibleRootItem().child(i) for i in range(d.model.rowCount())]
+expect("no search text: 'In Copenhagen area' comes first", top[0].text(), "In Copenhagen area")
+groups = [top[0].child(i).text() for i in range(top[0].rowCount())]; print(groups)
+expect("by area, nearest first", [g.split(" (")[0] for g in groups][:3], ["About Copenhagen area", "About Zealand and the southern islands", "About Denmark"])
+kk = top[0].child(0); kids = [kk.child(i).data(ROLE)[1] for i in range(kk.rowCount())]
+expect("Copenhagen's statistical units are there", "koebenhavns-kommune-statistical-units" in kids)
+from semanticgis.layers import layer_source
+units = d.catalogue.datasets["koebenhavns-kommune-statistical-units"]
+expect("its four levels are files on the web", [layer_source(s) for s in units.services], [("/vsicurl/https://semanticgis.org/Data/assets/reference/koebenhavn/" + n + ".gpkg", "ogr") for n in ("kk_bydel", "kk_lokaludvalg", "kk_kvarter", "kk_rode")])
+lay = QgsVectorLayer(*layer_source(units.services[0])[:1], "bydele", "ogr"); expect("bydele load over the web: 10 districts", (lay.isValid(), lay.featureCount()), (True, 10))
+choose(""); expect("All areas: no 'In …' branch", d.model.invisibleRootItem().child(0).text().startswith("In "), False)
+d.catalogue.areas = {}; d.rebuild(); expect("no areas, no choice shown", d.area_row.isVisibleTo(d), False)
 QgsSettings().remove("semanticgis"); print("failures:", fails); app.exitQgis(); sys.exit(bool(fails))

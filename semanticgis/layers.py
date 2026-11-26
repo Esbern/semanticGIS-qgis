@@ -136,7 +136,10 @@ def layer_source(service, only_in_view=True, preferred_crs=PREFERRED_CRS, filter
         from .access import KEYS
         from .share import LINK, source
 
-        return source(KEYS.key(LINK), service.url), "gdal" if service.kind == "raster" else "ogr"
+        provider = "gdal" if getattr(service, "kind", "vector") == "raster" else "ogr"
+        if service.url.startswith(("https://", "http://")):           # a file on the web, not on the share
+            return "/vsicurl/" + service.url, provider
+        return source(KEYS.key(LINK), service.url), provider
     raise ValueError(f"Service type {service.type} cannot be loaded as a layer")
 
 
