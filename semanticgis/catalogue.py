@@ -264,6 +264,12 @@ class ReferenceSource:
     version: str | None
     crs: str | None
     geometries: list
+    units: list | None = None      # a join key's units, from the catalogue: no file has to be read to index them
+    wfs: dict | None = None        # {url, layer, id_field, access}: the geometry comes from a WFS, with the user's key
+    join_key: str | None = None    # the variable (role join-key) whose codes these units carry
+    history: list = field(default_factory=list)    # codes valid earlier ({code, name, valid_from, valid_to})
+    changes: list = field(default_factory=list)    # known changes ({date, what, source})
+    page: str | None = None
 
     @property
     def label(self):

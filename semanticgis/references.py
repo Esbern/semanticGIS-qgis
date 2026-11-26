@@ -123,6 +123,45 @@ def union_bbox(units):
     return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
 
 
+WFS_FILTER_MAX = 30   # up to this many units: an attribute filter in the request; more: the whole layer, once (the URL would be too long)
+
+
+def _wfs_key(source):
+    from .access import KEYS
+    key = KEYS.key(source.wfs.get("access", "datafordeler"))
+    if not key:
+        raise RuntimeError("The geometry comes from Datafordeleren: set your Datafordeleren API key first (SemanticGIS settings).")
+    return key
+
+
+def fetch_wfs(source, ids, cache_dir):
+    """Local GeoPackage with the units `ids` from the source's WFS (DAGI on Datafordeleren). The key is added to
+    the request only; the cached file and the joined layer carry none."""
+    w = source.wfs
+    gdal.SetConfigOption("OGR_WFS_PAGING_ALLOWED", "ON")
+    url = f"WFS:{w['url']}?apikey={_wfs_key(source)}"
+    where = f"{w['id_field']} IN ({', '.join(_quote(i) for i in ids)})"
+    if len(ids) <= WFS_FILTER_MAX:
+        return _extract_wfs(url, w["layer"], cache_dir, ("ids", w["url"], w["layer"], sorted(ids)), where)
+    whole = _extract_wfs(url, w["layer"], cache_dir, ("all", w["url"], w["layer"]), None)
+    return _extract(whole, cache_dir, where)
+
+
+def _extract_wfs(url, layer, cache_dir, cache_key, where):
+    key = hashlib.sha1(json.dumps(cache_key).encode()).hexdigest()[:16]
+    path = os.path.join(cache_dir, f"wfs-{key}.gpkg")
+    if os.path.exists(path):
+        return path
+    os.makedirs(cache_dir, exist_ok=True)
+    tmp = path[: -len(".gpkg")] + ".part.gpkg"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    options = gdal.VectorTranslateOptions(format="GPKG", layers=[layer], where=where, geometryType="MULTIPOLYGON", layerName="units")
+    gdal.VectorTranslate(tmp, url, options=options)
+    os.replace(tmp, path)
+    return path
+
+
 def fetch_geometries(source, geometry, ids, cache_dir, bbox=None):
     """Local GeoPackage with the units `ids` of `source` at the scale of `geometry`.
 
@@ -132,5 +171,7 @@ def fetch_geometries(source, geometry, ids, cache_dir, bbox=None):
     ids = sorted(set(ids))
     if not ids:
         raise ValueError("No units to fetch")
+    if getattr(source, "wfs", None):
+        return fetch_wfs(source, ids, cache_dir)
     where = f"{source.id_scheme} IN ({', '.join(_quote(i) for i in ids)})"
     return _extract(geometry.url, cache_dir, where, bbox)

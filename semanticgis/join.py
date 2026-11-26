@@ -208,3 +208,24 @@ def _mixed_levels(candidates, good):
             if c not in good:
                 extra.append(c)
     return extra
+
+
+def explain(candidate, values, limit=4):
+    """Notes on a candidate from what the join key knows: codes that were valid only earlier (municipalities
+    before 2007) and known changes (Region Østdanmark). Plain text lines; empty when there is nothing to say."""
+    source = candidate.source
+    notes = []
+    history = {}
+    for h in getattr(source, "history", None) or []:
+        history.setdefault(norm_id(h["code"]), h)
+    old = [v for v in dict.fromkeys(values) if v not in (None, "") and candidate.lookup(v) is None and norm_id(v) in history]
+    if old:
+        examples = ", ".join(f"{norm_id(v)} {history[norm_id(v)]['name']} (until {history[norm_id(v)]['valid_to']})" for v in old[:limit])
+        notes.append(f"{len(old)} codes are of units ({source.unit}) that existed only earlier, e.g. {examples}: today's units have no "
+                     f"geometry for them (the table may be from before the reform of 2007).")
+    if getattr(source, "join_key", None) == "region-code":
+        codes = {norm_id(v) for v in values}
+        for change in getattr(source, "changes", None) or []:
+            if codes & {"1084", "1085", "1086"}:
+                notes.append(f"From {change['date']}: {change['what']}." + (" Region 1086 has no geometry on Datafordeleren before then." if "1086" in codes else ""))
+    return notes

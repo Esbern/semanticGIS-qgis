@@ -19,7 +19,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from . import references
-from .join import KeyIndex, detect
+from .join import explain, KeyIndex, detect
 from .joiner import add_joined_layer, build_joined_layer, matched_units, table_columns
 from .settings import SETTINGS_PREFIX
 
@@ -33,12 +33,23 @@ def cache_dir():
     return os.path.join(QgsApplication.qgisSettingsDirPath(), "semanticgis", "references")
 
 
+def _needs_key(source):
+    """True when the source's geometry needs an API key the user has not set."""
+    if not getattr(source, "wfs", None):
+        return False
+    from .access import KEYS
+    return not KEYS.has_key(source.wfs.get("access", "datafordeler"))
+
+
 def load_indexes(sources, country, task=None):
     """KeyIndex per reference source. Small sources are read first, so a country's bounding
     box (from NUTS level 0) is known before the large per-country sources are read."""
     cache = cache_dir()
     sized = []
     for source in sources:
+        if getattr(source, "units", None) is not None:      # a join key: its units are in the catalogue
+            sized.append((-1, source))
+            continue
         try:
             _, count = references.describe(source.index_geometry.url)
         except RuntimeError:
@@ -50,6 +61,9 @@ def load_indexes(sources, country, task=None):
             if task.isCanceled():
                 return indexes, problems
             task.setProgress(100 * i / max(len(sized), 1))
+        if getattr(source, "units", None) is not None:
+            indexes.append(KeyIndex(source, source.units, country))
+            continue
         bbox = references.country_bbox(units_read, country)
         try:
             units = references.read_units(source, cache, country=country, country_bbox=bbox)
@@ -136,6 +150,7 @@ class JoinDialog(QDialog):
         country = self.country.text().strip().upper()
         QgsSettings().setValue(SETTINGS_PREFIX + "join_country", country)
         columns = table_columns(layer)
+        self._columns = columns
         sources = list(self.catalogue.references)
         self.results.clear()
         self.scale.clear()
@@ -153,8 +168,11 @@ class JoinDialog(QDialog):
                 self.details.setText(f"Detection failed: {exception}")
                 return
             self.candidates, problems = result
+            # a source that needs a key the user has not set comes after an equally good one that needs none
+            self.candidates.sort(key=lambda c: (-round(c.rate, 2), _needs_key(c.source)))
             for candidate in self.candidates[:10]:
-                self.results.addItem(QListWidgetItem(candidate.describe()))
+                text = candidate.describe() + (" — needs your Datafordeleren API key" if _needs_key(candidate.source) else "")
+                self.results.addItem(QListWidgetItem(text))
             note = ("\n" + "\n".join(problems)) if problems else ""
             if self.candidates:
                 self.results.setCurrentRow(0)
@@ -172,7 +190,9 @@ class JoinDialog(QDialog):
         for geometry in candidate.source.geometries_by_detail():
             self.scale.addItem(geometry.scale, geometry)
         unmatched = ", ".join(candidate.unmatched) or "none"
-        self.details.setText(f"From: {candidate.source.title}\nUnmatched values (examples): {unmatched}")
+        notes = explain(candidate, getattr(self, "_columns", {}).get(candidate.field, []))
+        key = f"\nJoin key: {candidate.source.join_key}" if getattr(candidate.source, "join_key", None) else ""
+        self.details.setText(f"From: {candidate.source.title}{key}\nUnmatched values (examples): {unmatched}" + "".join(f"\n• {n}" for n in notes))
         self.join_button.setEnabled(True)
 
     # -- join ------------------------------------------------------------------------

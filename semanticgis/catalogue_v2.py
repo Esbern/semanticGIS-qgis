@@ -96,7 +96,9 @@ def extend(catalogue, index2, catalogue2, make_service):
     catalogue.registers = index2.get("registers", {})      # initiative: its schema and its datasets, one per class
     catalogue.flat = bool(catalogue.registers)
     catalogue.redirects = index2.get("redirects", {})
-    catalogue.areas = index2.get("areas", {})              # published on the site; the list in the panel's heading
+    catalogue.areas = index2.get("areas", {})
+    catalogue.join_keys = index2.get("join_keys", {})     # codes that join tables to DAGI's units (municipality, parish, …)
+    _join_key_references(catalogue)              # published on the site; the list in the panel's heading
     catalogue.legends = index2.get("legends", {})
     catalogue.access_paths = index2.get("access_paths", {})
     catalogue.leaf_variables = {}
@@ -184,3 +186,22 @@ def columns_of(dataset, service):
             if service.type == "file" and m["protocol"] == "file" and f"/{m['snapshot']}/" in service.url and m["file"] in ("*", service.layer):
                 return m["columns"]
     return {}
+
+
+def _join_key_references(catalogue):
+    """Each join key with a reference (DAGI's units on Datafordeleren) becomes a reference source of the join tool:
+    its units come from the catalogue's code list, the geometry from the WFS with the user's own API key."""
+    from .catalogue import ReferenceGeometry, ReferenceSource
+    from .join import RefUnit
+    refs = getattr(catalogue, "references", None)
+    if refs is None:
+        catalogue.references = refs = []
+    for variable, key in catalogue.join_keys.items():
+        r = key.get("reference")
+        if not r or any(getattr(s, "join_key", None) == variable for s in refs):
+            continue
+        refs.append(ReferenceSource(
+            realisation=f"join-key/{variable}", title=f"{r['title']} on Datafordeleren (with your API key)", leaf=key.get("leaf"),
+            unit=key["unit"].split(" (")[0], id_scheme=r["id_field"], version=key.get("fetched"), crs=r.get("crs"),
+            geometries=[ReferenceGeometry(scale="full detail", url=r["url"])], units=[RefUnit(c["code"], c.get("name")) for c in key.get("codes", [])],
+            wfs=r, join_key=variable, history=key.get("history", []), changes=key.get("changes", []), page=key.get("page")))
