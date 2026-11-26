@@ -2,8 +2,8 @@
 
 import os
 
-from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsProject, QgsSettings, QgsTask
-from qgis.PyQt.QtCore import QCoreApplication, QUrl, Qt
+from qgis.core import Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsMessageLog, QgsProject, QgsSettings, QgsTask
+from qgis.PyQt.QtCore import QCoreApplication, QTimer, QUrl, Qt
 from qgis.PyQt.QtGui import QDesktopServices, QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
 from .access import KEYS
 from .attribution import LAYOUT_EXPRESSION, STATUS_NOTE, copy_layer_attributions
 from . import legends
-from .catalogue_v2 import LINK_NOTE, SHARE, around, concerns
+from .catalogue_v2 import KINDS, LINK_NOTE, SHARE, around, canvas_home, concerns, touches
 from .catalogue import DEFAULT_BASE_URL, CatalogueError, load_catalogue
 from .join_dialog import JoinDialog
 from .layers import (
@@ -112,7 +112,7 @@ class SemanticGisDock(QDockWidget):
 
         areas = QHBoxLayout()
         self.area, self.area_around = QComboBox(), QComboBox()
-        self.area.setToolTip("Show data about this area and the places inside it")
+        self.area.setToolTip("Show data about this area and the places inside it. Map canvas: the area the map shows, following the map")
         self.area_around.setToolTip("Also show data about the areas around it, as far as this one (for example OpenStreetMap, which is about the world)")
         areas.addWidget(QLabel("Area"))
         areas.addWidget(self.area, 1)
@@ -125,6 +125,14 @@ class SemanticGisDock(QDockWidget):
         layout.addWidget(self.area_row)
         self.area.currentIndexChanged.connect(self._area_chosen)
         self.area_around.currentIndexChanged.connect(self._around_chosen)
+        self._canvas_key, self._area_now = None, None
+        self._canvas_timer = QTimer(self)
+        self._canvas_timer.setSingleShot(True)
+        self._canvas_timer.setInterval(700)
+        self._canvas_timer.timeout.connect(self._canvas_moved)
+        canvas = iface.mapCanvas() if hasattr(iface, "mapCanvas") else None
+        if canvas is not None:
+            canvas.extentsChanged.connect(self._canvas_timer.start)
 
         self.verified_only = QCheckBox("Verified services only")
         self.verified_only.setChecked(True)
@@ -608,8 +616,10 @@ class SemanticGisDock(QDockWidget):
 
     # -- areas: what the datasets are about ------------------------------------------
 
+    CANVAS = "@canvas"
+
     def _fill_areas(self):
-        """The site's list of areas, as a tree; the user's choice is kept (Denmark to begin with)."""
+        """The site's list of areas, grouped by kind (global, regional, national, local, project); the user's choice is kept (Denmark to begin with)."""
         known = getattr(self.catalogue, "areas", None) or {}
         self.area_row.setVisible(bool(known))
         if getattr(self, "_areas_shown", None) is known:
@@ -619,19 +629,53 @@ class SemanticGisDock(QDockWidget):
         self.area.blockSignals(True)
         self.area.clear()
         self.area.addItem("All areas", "")
-
-        def add(parent, depth):
-            for key, a in known.items():
-                if a.get("parent") == parent:
-                    self.area.addItem("    " * depth + a["title"], key)
-                    add(key, depth + 1)
-        add(None, 0)
+        self.area.addItem("Map canvas", self.CANVAS)
+        if all(a.get("kind") for a in known.values()):
+            for kind, title in KINDS:
+                keys = [k for k, a in known.items() if a["kind"] == kind]
+                if keys:
+                    self.area.addItem(f"— {title} —", None)
+                    self.area.model().item(self.area.count() - 1).setEnabled(False)
+                    for key in keys:
+                        self.area.addItem("    " + known[key]["title"], key)
+        else:
+            def add(parent, depth):
+                for key, a in known.items():
+                    if a.get("parent") == parent:
+                        self.area.addItem("    " * depth + a["title"], key)
+                        add(key, depth + 1)
+            add(None, 0)
         self.area.setCurrentIndex(max(0, self.area.findData(wanted)))
         self.area.blockSignals(False)
+        self._canvas_key = None
         self._fill_around()
 
-    def _fill_around(self):
+    def _canvas_box(self):
+        """The map canvas as (west, south, east, north) in degrees; None when there is no canvas."""
+        try:
+            canvas = self.iface.mapCanvas()
+            to_degrees = QgsCoordinateTransform(canvas.mapSettings().destinationCrs(), QgsCoordinateReferenceSystem("EPSG:4326"), QgsProject.instance())
+            r = to_degrees.transformBoundingBox(canvas.extent())
+            box = [max(-180.0, r.xMinimum()), max(-90.0, r.yMinimum()), min(180.0, r.xMaximum()), min(90.0, r.yMaximum())]
+            return box if box[0] < box[2] and box[1] < box[3] else None
+        except Exception:
+            return None
+
+    def _chosen(self):
+        """(area, box): the chosen area, or for the map canvas the area it lies in and the canvas box."""
         known, chosen = getattr(self.catalogue, "areas", None) or {}, self.area.currentData()
+        if chosen != self.CANVAS:
+            return chosen, None
+        box = self._canvas_box()
+        if box is None:
+            return "", None
+        home = canvas_home(known, box)
+        at = self.area.findData(self.CANVAS)
+        self.area.setItemText(at, f"Map canvas ({known[home]['title']})" if home in known else "Map canvas")
+        return home, box
+
+    def _fill_around(self):
+        known, chosen = getattr(self.catalogue, "areas", None) or {}, self._chosen()[0]
         wanted = settings_value("v2_area_around", "world")
         self.area_around.blockSignals(True)
         self.area_around.clear()
@@ -645,6 +689,7 @@ class SemanticGisDock(QDockWidget):
 
     def _area_chosen(self):
         QgsSettings().setValue(SETTINGS_PREFIX + "v2_area", self.area.currentData())
+        self._canvas_key = None
         self._fill_around()
         self.rebuild()
 
@@ -652,15 +697,35 @@ class SemanticGisDock(QDockWidget):
         QgsSettings().setValue(SETTINGS_PREFIX + "v2_area_around", self.area_around.currentData())
         self.rebuild()
 
+    def _canvas_moved(self):
+        """The map moved: with Map canvas chosen, show again when the areas it shows have changed."""
+        if self.area.currentData() != self.CANVAS or not self.catalogue:
+            return
+        known = getattr(self.catalogue, "areas", None) or {}
+        home, box = self._chosen()
+        key = (home, frozenset(a for a in known if box and home in around(known, a) and touches(known, a, box)))
+        if key == self._canvas_key:
+            return
+        if self._canvas_key is None or key[0] != self._canvas_key[0]:
+            self._fill_around()
+        self._canvas_key = key
+        self.rebuild()
+
     def _in_area(self, dataset):
         known = getattr(self.catalogue, "areas", None)
-        return not known or concerns(known, getattr(dataset, "scope", None), self.area.currentData(), self.area_around.currentData())
+        if not known:
+            return True
+        if self._area_now is None:
+            self._area_now = self._chosen()
+        area, box = self._area_now
+        return concerns(known, getattr(dataset, "scope", None), area, self.area_around.currentData(), box)
 
     def rebuild(self):
         self.model.clear()
         if not self.catalogue:
             return
         self._fill_areas()
+        self._area_now = None                               # worked out once per rebuild (the canvas is read once)
         root = self.model.invisibleRootItem()
         text = self.search.text().strip()
         if text:

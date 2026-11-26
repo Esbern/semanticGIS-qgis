@@ -138,11 +138,36 @@ def around(areas, area):
     return out
 
 
-def concerns(areas, scope, chosen, up_to=None):
+KINDS = (("global", "Global"), ("regional", "Regional"), ("national", "National"), ("local", "Local"), ("project", "Project"))
+
+
+def touches(areas, area, box):
+    """Does one of the area's search boxes meet the box (west, south, east, north, in degrees)?"""
+    return any(b[0] <= box[2] and box[0] <= b[2] and b[1] <= box[3] and box[1] <= b[3] for b in areas.get(area, {}).get("boxes") or [])
+
+
+def _size(b):
+    return max(0, b[2] - b[0]) * max(0, b[3] - b[1])
+
+
+def canvas_home(areas, box):
+    """The smallest area one of whose search boxes holds the whole box: where a map of that box is. World when none does."""
+    best, size = None, None
+    for key, a in areas.items():
+        for b in a.get("boxes") or []:
+            if b[0] <= box[0] and b[1] <= box[1] and box[2] <= b[2] and box[3] <= b[3] and (size is None or _size(b) < size):
+                best, size = key, _size(b)
+    return best or next((k for k, a in areas.items() if not a.get("parent")), None)
+
+
+def concerns(areas, scope, chosen, up_to=None, near=None):
     """Is a dataset about `scope` wanted by someone who chose an area and the areas around it up to `up_to`?
-    Data about the area, about places inside it, and about the areas around it as far as asked for; data whose area is not known are always shown."""
-    if not chosen or chosen not in areas or not scope or scope not in areas or scope == chosen or chosen in around(areas, scope):
+    Data about the area, about places inside it, and about the areas around it as far as asked for; data whose area is not known are always shown.
+    With `near` (a box: the map canvas), a place inside the area counts only when it touches the box."""
+    if not chosen or chosen not in areas or not scope or scope not in areas or scope == chosen:
         return True
+    if chosen in around(areas, scope):
+        return near is None or touches(areas, scope, near)
     chain = around(areas, chosen)
     return scope in (chain[:chain.index(up_to) + 1] if up_to in chain else [])
 
