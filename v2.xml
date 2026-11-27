@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
-  <pyqgis_plugin name="SemanticGIS v2 (test)" version="0.9.0-dev17" plugin_id="semanticgis">
+  <pyqgis_plugin name="SemanticGIS v2 (test)" version="0.9.0-dev18" plugin_id="semanticgis">
     <description>Browse the SemanticGIS (SPHERE) data network and load its WFS, WMS and WMTS services</description>
     <about>SemanticGIS organises Danish and European geospatial data as a network of spheres, twigs and leaves: each leaf is a question you can ask of the data (for example "Which nature protection designations apply here?"). This plugin lets you browse that network or search it by question, and adds the services behind each leaf as layers. Every layer is tagged with the leaf and dataset it came from. The catalogue is published at semanticgis.org and checked against the live services.</about>
-    <version>0.9.0-dev17</version>
-    <changelog>0.9.0-dev17 StatBank import: large selections (all postcodes) work (asked for with POST, a long link gave 404); the area is also found by its codes or name when the table has no map; a table with one number column names it INDHOLD. New Processing tool Data access › Import a table from Danmarks Statistik, for models and batch runs.
+    <version>0.9.0-dev18</version>
+    <changelog>0.9.0-dev18 Join to units as they were: for parishes, postcodes, municipalities and regions the join tool can take the units valid on a date (by default the start of the table's latest period) or join each row to the units of its own period (time kept as rows; the layer then steps with the temporal controller), from DAGI's history on Datafordeleren since January 2018, with your API key; codes that have ended (merged parishes) now match and are explained. New Processing tool Vector selection › Objects as they were on a date (new / gone since): BBR, DAR, Matriklen and other registers with history, using the catalogue's column maps and status roles.
+0.9.0-dev17 StatBank import: large selections (all postcodes) work (asked for with POST, a long link gave 404); the area is also found by its codes or name when the table has no map; a table with one number column names it INDHOLD. New Processing tool Data access › Import a table from Danmarks Statistik, for models and batch runs.
 0.9.0-dev16 Import a table from Danmarks Statistik: give a StatBank table code or link, tick the values, and get a table with code and name per area and one number column per combination of the other values (e.g. Kvinder and Maend, one column per period), ready for the field calculator and the join. No file to download or edit.
 0.9.0-dev15 Join a table to reference units: municipality, parish, postcode and region codes are recognised from the catalogue's code lists (join keys) and joined to DAGI's units, the geometry fetched from Datafordeleren with your API key; codes of municipalities that ended in 2006 and the 2027 regions are explained. Without a key an equally good source that needs none comes first.
 0.9.0-dev14 Registers show all their class datasets: those without a map service (BBR's Enhed, Etage, Opgang, Grund … fetched through GraphQL) appear as page links; double-click opens the page with their attributes and code lists.
@@ -57,13 +58,13 @@
     <qgis_minimum_version>3.34</qgis_minimum_version>
     <qgis_maximum_version>4.99</qgis_maximum_version>
     <homepage>https://semanticgis.org</homepage>
-    <file_name>semanticgis.0.9.0-dev17.zip</file_name>
-    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.9.0-dev17/semanticgis/icon.svg</icon>
+    <file_name>semanticgis.0.9.0-dev18.zip</file_name>
+    <icon>https://raw.githubusercontent.com/Esbern/semanticGIS-qgis/v0.9.0-dev18/semanticgis/icon.svg</icon>
     <author_name>Esbern Holmes</author_name>
-    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.9.0-dev17/semanticgis.0.9.0-dev17.zip</download_url>
+    <download_url>https://github.com/Esbern/semanticGIS-qgis/releases/download/v0.9.0-dev18/semanticgis.0.9.0-dev18.zip</download_url>
     <uploaded_by>Esbern Holmes</uploaded_by>
-    <create_date>2026-11-26T17:20:22Z</create_date>
-    <update_date>2026-11-26T17:20:22Z</update_date>
+    <create_date>2026-11-27T16:41:47Z</create_date>
+    <update_date>2026-11-27T16:41:47Z</update_date>
     <experimental>False</experimental>
     <deprecated>False</deprecated>
     <tracker>https://github.com/Esbern/semanticGIS-qgis/issues</tracker>
