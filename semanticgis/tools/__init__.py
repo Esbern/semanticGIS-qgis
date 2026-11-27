@@ -11,6 +11,7 @@ from qgis.PyQt.QtGui import QIcon
 
 from .ais_days import AisDays
 from .aoi_wkt import AreaOfInterestWkt
+from .as_on_date import AsOnDate
 from .building_heights import BuildingHeights
 from .clip_to_geopackage import ClipToGeoPackage
 from .flatten_snapshots import FlattenSnapshots
@@ -25,7 +26,7 @@ from .value_combination import ValueCombination
 from .zonal_statistics import ZonalStatisticsLegend
 
 ALGORITHMS = [TabulateAreaLegend, ZonalStatisticsLegend, RenumberFid, AreaOfInterestWkt, SnapshotSeries, FlattenSnapshots, ValueCombination,
-              UrbanContext, BuildingHeights, ClipToGeoPackage, AisDays, StatBankTable, LineDensity, BuildPartitionLines, PolygonizePartition]
+              UrbanContext, BuildingHeights, ClipToGeoPackage, AisDays, StatBankTable, AsOnDate, LineDensity, BuildPartitionLines, PolygonizePartition]
 
 
 class SemanticGisProvider(QgsProcessingProvider):

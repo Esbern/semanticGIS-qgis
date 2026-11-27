@@ -175,3 +175,128 @@ def fetch_geometries(source, geometry, ids, cache_dir, bbox=None):
         return fetch_wfs(source, ids, cache_dir)
     where = f"{source.id_scheme} IN ({', '.join(_quote(i) for i in ids)})"
     return _extract(geometry.url, cache_dir, where, bbox)
+
+
+# -- units as they were on a date: DAGI's bitemporal GraphQL on Datafordeleren --------------------------------
+
+GRAPHQL_PAGE = 1000
+GRAPHQL_CODES = 400        # codes per request in a filter
+VERSIONS_LAYER = "versions"
+
+
+def _graphql(cfg, key, query, timeout=300):
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(f"{cfg['url']}?apiKey={key}", data=json.dumps({"query": query}).encode("utf-8"),
+                                 headers={"Content-Type": "application/json", "User-Agent": "SemanticGIS QGIS plugin"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:       # the message, never the URL (it holds the key)
+        raise RuntimeError(f"Datafordeleren answered {e.code} {e.reason}") from None
+    if d.get("errors"):
+        raise RuntimeError("Datafordeleren: " + d["errors"][0].get("message", "error")[:300])
+    return d["data"]
+
+
+def _graphql_all(cfg, key, args, fields, codes, id_field):
+    """Every node for `args` (time arguments), the codes in chunks, the pages followed."""
+    entity, out = cfg["entity"], []
+    chunks = [codes[i:i + GRAPHQL_CODES] for i in range(0, len(codes), GRAPHQL_CODES)] or [[]]
+    for chunk in chunks:
+        where = f', where:{{{id_field}:{{in:{json.dumps(chunk)}}}}}' if chunk else ""
+        after = ""
+        while True:
+            d = _graphql(cfg, key, f'{{{entity}(first:{GRAPHQL_PAGE}{after}, {args}{where}){{pageInfo{{hasNextPage endCursor}} nodes{{{fields}}}}}}}')[entity]
+            out += d["nodes"]
+            if not d["pageInfo"]["hasNextPage"]:
+                break
+            after = f', after:"{d["pageInfo"]["endCursor"]}"'
+    return out
+
+
+def _now():
+    import datetime as dt
+    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def unit_versions(source, codes):
+    """Every version of the units `codes` in valid time, as the register knows them now (no geometry: quick)."""
+    from .timeslice import versions_from
+    cfg, w = source.wfs["graphql"], source.wfs
+    nodes = _graphql_all(cfg, _wfs_key(source), f'registreringstid:"{_now()}"', f"{w['id_field']} {w.get('name_field', 'navn')} virkningFra virkningTil",
+                         sorted(set(codes)), w["id_field"])
+    return versions_from(nodes, w["id_field"], w.get("name_field", "navn"))
+
+
+def versions_path(source, cache_dir):
+    return os.path.join(cache_dir, f"dagi-{source.wfs['graphql']['entity'].lower()}.gpkg")
+
+
+def _cached_keys(path):
+    if not os.path.exists(path):
+        return set()
+    ds = ogr.Open(path)
+    layer = ds.GetLayerByName(VERSIONS_LAYER)
+    return {(f.GetField("code"), f.GetField("stamp")) for f in layer} if layer else set()
+
+
+def fetch_unit_versions(source, needed, cache_dir, progress=None):
+    """Make sure the cache holds the geometry of every version in `needed` ({(code, stamp): UnitVersion}); returns
+    the cache's path. A version is fetched at the instant it begins, so the register returns exactly it."""
+    w, cfg = source.wfs, source.wfs["graphql"]
+    path = versions_path(source, cache_dir)
+    os.makedirs(cache_dir, exist_ok=True)
+    missing = [k for k in needed if k not in _cached_keys(path)]
+    if not missing:
+        return path
+    by_stamp = {}
+    for code, stamp in missing:
+        by_stamp.setdefault(stamp, []).append(code)
+    key, now = _wfs_key(source), _now()
+    if os.path.exists(path):
+        ds = ogr.Open(path, 1)
+        layer = ds.GetLayerByName(VERSIONS_LAYER)
+    else:
+        from osgeo import osr
+        ds = ogr.GetDriverByName("GPKG").CreateDataSource(path)
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(int(str(w.get("crs") or "EPSG:25832").split(":")[-1]))
+        layer = ds.CreateLayer(VERSIONS_LAYER, srs, ogr.wkbMultiPolygon)
+        for name in ("code", "name", "stamp", "valid_from", "valid_to"):
+            layer.CreateField(ogr.FieldDefn(name, ogr.OFTString))
+    defn = layer.GetLayerDefn()
+    for i, (stamp, codes) in enumerate(sorted(by_stamp.items())):
+        if progress and progress(i, len(by_stamp)):
+            break
+        nodes = _graphql_all(cfg, key, f'registreringstid:"{now}", virkningstid:"{stamp}"', f"{w['id_field']} {w.get('name_field', 'navn')} virkningFra virkningTil geometri{{wkt}}",
+                             sorted(codes), w["id_field"])
+        layer.StartTransaction()
+        for n in nodes:
+            v = needed.get((str(n[w["id_field"]]), n["virkningFra"]))
+            if v is None or not (n.get("geometri") or {}).get("wkt"):
+                continue
+            f = ogr.Feature(defn)
+            f.SetField("code", v.code); f.SetField("name", v.name or ""); f.SetField("stamp", v.stamp)
+            f.SetField("valid_from", v.valid_from.isoformat()); f.SetField("valid_to", v.valid_to.isoformat() if v.valid_to else None)
+            g = ogr.ForceToMultiPolygon(ogr.CreateGeometryFromWkt(n["geometri"]["wkt"]))
+            f.SetGeometry(g)
+            layer.CreateFeature(f)
+        layer.CommitTransaction()
+    layer = defn = None
+    ds = None                               # closes the file before QGIS opens it
+    return path
+
+
+def units_on(source, codes, days, cache_dir, progress=None):
+    """The versions of the units `codes` valid on each of `days`, with their geometry in the cache.
+    Returns (cache path, {day: {code: UnitVersion}}, the date DAGI's history begins)."""
+    import datetime as dt
+
+    from .timeslice import pick
+    versions = unit_versions(source, codes)
+    begins = source.wfs["graphql"].get("from")
+    begins = dt.date.fromisoformat(begins[:10]) if begins else min((v.valid_from for v in versions), default=None)
+    chosen = {d: pick(versions, d, begins) for d in days}
+    needed = {(v.code, v.stamp): v for c in chosen.values() for v in c.values()}
+    return fetch_unit_versions(source, needed, cache_dir, progress), chosen, begins

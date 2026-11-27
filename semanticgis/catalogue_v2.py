@@ -97,7 +97,9 @@ def extend(catalogue, index2, catalogue2, make_service):
     catalogue.flat = bool(catalogue.registers)
     catalogue.redirects = index2.get("redirects", {})
     catalogue.areas = index2.get("areas", {})
-    catalogue.join_keys = index2.get("join_keys", {})     # codes that join tables to DAGI's units (municipality, parish, …)
+    catalogue.join_keys = index2.get("join_keys", {})
+    catalogue.time_layers = index2.get("time_layers", {})   # per register dataset: its delivered layers' time form and column map
+    catalogue.status_roles = index2.get("status_roles", {}) # what each status code means for 'did it exist on a date'?     # codes that join tables to DAGI's units (municipality, parish, …)
     _join_key_references(catalogue)              # published on the site; the list in the panel's heading
     catalogue.legends = index2.get("legends", {})
     catalogue.access_paths = index2.get("access_paths", {})
@@ -188,6 +190,16 @@ def columns_of(dataset, service):
     return {}
 
 
+def _units(key, reference):
+    """Today's units; with a source of units by date (DAGI's history), also the codes that ended since it begins."""
+    from .join import RefUnit
+    units = [RefUnit(c["code"], c.get("name")) for c in key.get("codes", [])]
+    if reference.get("graphql"):
+        have = {u.id for u in units}
+        units += [RefUnit(h["code"], h.get("name")) for h in key.get("history", []) if h.get("source") == "dagi" and h["code"] not in have]
+    return units
+
+
 def _join_key_references(catalogue):
     """Each join key with a reference (DAGI's units on Datafordeleren) becomes a reference source of the join tool:
     its units come from the catalogue's code list, the geometry from the WFS with the user's own API key."""
@@ -203,5 +215,5 @@ def _join_key_references(catalogue):
         refs.append(ReferenceSource(
             realisation=f"join-key/{variable}", title=f"{r['title']} on Datafordeleren (with your API key)", leaf=key.get("leaf"),
             unit=key["unit"].split(" (")[0], id_scheme=r["id_field"], version=key.get("fetched"), crs=r.get("crs"),
-            geometries=[ReferenceGeometry(scale="full detail", url=r["url"])], units=[RefUnit(c["code"], c.get("name")) for c in key.get("codes", [])],
+            geometries=[ReferenceGeometry(scale="full detail", url=r["url"])], units=_units(key, r),
             wfs=r, join_key=variable, history=key.get("history", []), changes=key.get("changes", []), page=key.get("page")))

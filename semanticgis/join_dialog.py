@@ -2,10 +2,13 @@
 
 import os
 
+import datetime as dt
+
 from qgis.core import Qgis, QgsApplication, QgsMapLayerProxyModel, QgsSettings, QgsTask
 from qgis.gui import QgsMapLayerComboBox
 from qgis.PyQt.QtWidgets import (
     QComboBox,
+    QDateEdit,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -20,7 +23,8 @@ from qgis.PyQt.QtWidgets import (
 
 from . import references
 from .join import explain, KeyIndex, detect
-from .joiner import add_joined_layer, build_joined_layer, matched_units, table_columns
+from .joiner import add_joined_layer, build_dated_layer, build_joined_layer, matched_units, table_columns
+from .timeslice import latest_period_start, period_start, time_field
 from .settings import SETTINGS_PREFIX
 
 try:  # QGIS >= 3.34 names the layer filters on Qgis
@@ -122,7 +126,18 @@ class JoinDialog(QDialog):
         scale_row = QFormLayout()
         self.scale = QComboBox()
         scale_row.addRow("Geometry scale", self.scale)
+        # units as they were: for join keys whose register keeps its history (DAGI on Datafordeleren, from 2018)
+        self.when = QComboBox()
+        self.when.currentIndexChanged.connect(self._when_changed)
+        self.when_label = QLabel("Units as they were")
+        scale_row.addRow(self.when_label, self.when)
+        self.day = QDateEdit()
+        self.day.setCalendarPopup(True)
+        self.day.setDisplayFormat("yyyy-MM-dd")
+        self.day_label = QLabel("Date")
+        scale_row.addRow(self.day_label, self.day)
         layout.addLayout(scale_row)
+        self._show_when(False)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.join_button = buttons.addButton("Join", QDialogButtonBox.ButtonRole.AcceptRole)
@@ -187,6 +202,7 @@ class JoinDialog(QDialog):
             self.join_button.setEnabled(False)
             return
         candidate = self.candidates[row]
+        self._fill_when(candidate)
         for geometry in candidate.source.geometries_by_detail():
             self.scale.addItem(geometry.scale, geometry)
         unmatched = ", ".join(candidate.unmatched) or "none"
@@ -194,6 +210,97 @@ class JoinDialog(QDialog):
         key = f"\nJoin key: {candidate.source.join_key}" if getattr(candidate.source, "join_key", None) else ""
         self.details.setText(f"From: {candidate.source.title}{key}\nUnmatched values (examples): {unmatched}" + "".join(f"\n• {n}" for n in notes))
         self.join_button.setEnabled(True)
+
+    # -- units as they were -------------------------------------------------------------
+
+    def _show_when(self, on):
+        for w in (self.when, self.when_label, self.day, self.day_label):
+            w.setVisible(on)
+
+    def _fill_when(self, candidate):
+        """Today / on a date / each row at its period, for a join key with history (DAGI). The date defaults to the
+        start of the latest period named in the table's columns (a wide StatBank table); time kept as rows joins each
+        row to its own period."""
+        self.when.blockSignals(True)
+        self.when.clear()
+        cfg = (getattr(candidate.source, "wfs", None) or {}).get("graphql")
+        self._show_when(bool(cfg))
+        if not cfg:
+            self.when.blockSignals(False)
+            return
+        columns = getattr(self, "_columns", {})
+        self._time_field = time_field({k: v for k, v in columns.items() if k != candidate.field})
+        layer = self.table.currentLayer()
+        latest = latest_period_start([f.name() for f in layer.fields()]) if layer else None
+        self.when.addItem("today (the units valid now)", "today")
+        self.when.addItem(f"on a date (from {cfg.get('from', '2018')[:10]}, DAGI's history)", "date")
+        if self._time_field:
+            self.when.addItem(f"each row at its own period ({self._time_field})", "rows")
+        default = "rows" if self._time_field else "date" if latest else "today"
+        self.when.setCurrentIndex(self.when.findData(default))
+        day = latest or dt.date.today()
+        from qgis.PyQt.QtCore import QDate
+        self.day.setDate(QDate(day.year, day.month, day.day))
+        self.when.blockSignals(False)
+        self._when_changed()
+
+    def _when_changed(self, *args):
+        mode = self.when.currentData()
+        self.day.setEnabled(mode == "date")
+        self.scale.setEnabled(mode in (None, "today"))
+
+    def run_dated_join(self, candidate, layer, mode):
+        """The join with the units valid on a date, or each row with the units of its own period."""
+        units = matched_units(layer, candidate)
+        source = candidate.source
+        if mode == "rows":
+            field = self._time_field
+            row_day = {}
+            for f in layer.getFeatures():
+                d = period_start(f[field])
+                if d:
+                    row_day[f.id()] = d
+            days = sorted(set(row_day.values()))
+            label = f"as at each {field}"
+        else:
+            q = self.day.date()
+            days = [dt.date(q.year(), q.month(), q.day())]
+            label = f"as on {days[0].isoformat()}"
+        self.join_button.setEnabled(False)
+        self.details.setText(f"Fetching the {source.unit} units valid on {len(days)} date{'s' if len(days) > 1 else ''} from Datafordeleren… "
+                             "(the first time per date can take a minute: the borders are at full detail)")
+
+        def task_function(task):
+            def progress(i, n):
+                task.setProgress(100 * i / max(n, 1))
+                return task.isCanceled()
+            return references.units_on(source, list(units), days, cache_dir(), progress)
+
+        def on_finished(exception, result=None):
+            self.join_button.setEnabled(True)
+            if exception is not None:
+                self.details.setText(f"Fetching the units failed: {exception}")
+                return
+            path, chosen, begins = result
+            if mode == "rows":
+                version_of_row = lambda row, unit: chosen.get(row_day.get(row.id()), {}).get(unit.id)
+            else:
+                version_of_row = lambda row, unit: chosen[days[0]].get(unit.id)
+            try:
+                joined, matched, unmatched = build_dated_layer(layer, candidate, path, version_of_row, label, self._time_field if mode == "rows" else None)
+            except RuntimeError as error:
+                self.details.setText(str(error))
+                return
+            add_joined_layer(joined)
+            early = [d for d in days if begins and d < begins]
+            note = (f" Before {begins.isoformat()} DAGI has no history: {len(early)} date{'s' if len(early) > 1 else ''} got the units of "
+                    f"{begins.isoformat()} (municipalities and regions are unchanged since 2007; parishes and postcodes may differ).") if early else ""
+            missing = f"; unmatched: {', '.join(unmatched[:8])}" if unmatched else ""
+            self.details.setText(f"Added '{joined.name()}' with {matched} rows{missing}.{note}"
+                                 + (" Its rows have their period's dates: step through them with the temporal controller." if mode == "rows" else ""))
+            self.iface.messageBar().pushMessage("SemanticGIS", f"Joined {matched} rows of {layer.name()} to {source.unit} {label}", Qgis.MessageLevel.Success, 5)
+
+        self._start(QgsTask.fromFunction("Fetch SemanticGIS units by date", task_function, on_finished=on_finished))
 
     # -- join ------------------------------------------------------------------------
 
@@ -204,6 +311,10 @@ class JoinDialog(QDialog):
         if row < 0 or layer is None or geometry is None:
             return
         candidate = self.candidates[row]
+        mode = self.when.currentData() if self.when.isVisible() or self.when.count() else None
+        if mode in ("date", "rows"):
+            self.run_dated_join(candidate, layer, mode)
+            return
         units = matched_units(layer, candidate)
         bbox = references.union_bbox(units.values())
         self.join_button.setEnabled(False)

@@ -215,9 +215,14 @@ def explain(candidate, values, limit=4):
     before 2007) and known changes (Region Østdanmark). Plain text lines; empty when there is nothing to say."""
     source = candidate.source
     notes = []
-    history = {}
+    history, ended = {}, {}
     for h in getattr(source, "history", None) or []:
-        history.setdefault(norm_id(h["code"]), h)
+        (ended if h.get("source") == "dagi" else history).setdefault(norm_id(h["code"]), h)
+    gone = [v for v in dict.fromkeys(values) if v not in (None, "") and norm_id(v) in ended and candidate.lookup(v) is not None]
+    if gone:
+        examples = ", ".join(f"{norm_id(v)} {ended[norm_id(v)]['name']} (ended {ended[norm_id(v)]['valid_to']})" for v in gone[:limit])
+        notes.append(f"{len(gone)} codes are of units ({source.unit}) that have ended since DAGI's history began, e.g. {examples}: "
+                     f"join to the units of a date before they ended, or each row to its own period.")
     old = [v for v in dict.fromkeys(values) if v not in (None, "") and candidate.lookup(v) is None and norm_id(v) in history]
     if old:
         examples = ", ".join(f"{norm_id(v)} {history[norm_id(v)]['name']} (until {history[norm_id(v)]['valid_to']})" for v in old[:limit])
